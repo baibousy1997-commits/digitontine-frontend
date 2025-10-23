@@ -2,6 +2,7 @@ export default {
   primaryDark: '#004aad',    // Bleu foncé
   primaryLight: '#0066ff',   // Bleu clair
   accentYellow: '#ffd700',   // Jaune doré
+  accentGreen: '#28a745',    // Vert
   danger: '#dc3545',         // Rouge
   textDark: '#333333',       // Texte foncé
   textLight: '#ffffff',      // Texte clair

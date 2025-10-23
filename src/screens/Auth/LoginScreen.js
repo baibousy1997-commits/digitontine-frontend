@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Colors from '../../constants/colors';
 
 const { width } = Dimensions.get('window');
@@ -10,23 +11,77 @@ const { width } = Dimensions.get('window');
 const LoginScreen = ({ navigation }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [secureTextEntry, setSecureTextEntry] = useState(true);
-  const [phoneNumber, setPhoneNumber] = useState('+221 77 123 45 67');
-  const [password, setPassword] = useState('password123'); // Fictif
 
-  /**
-   * Fonction de connexion fictive.
-   * Après une validation simplifiée, navigue vers l'écran principal 'Main'.
-   */
-  const handleAuth = () => {
-    // Logique de validation et de connexion/inscription fictive
+  // Champs communs
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
+
+  // Champs inscription
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [cni, setCni] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [address, setAddress] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Identifiants fictifs pour la connexion
+  const FAKE_PHONE = '+221771234567';
+  const FAKE_PASSWORD = 'passer123';
+
+  const handleAuth = async () => {
     if (isLogin) {
-      if (phoneNumber.trim() && password.trim()) {
-        // Navigation réussie : remplace l'écran actuel par la navigation principale
-        navigation.replace('Main');
+      if (!phoneNumber.trim() || !password.trim()) {
+        Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
+        return;
+      }
+
+      // Vérification des identifiants
+      if (phoneNumber.trim() === FAKE_PHONE && password.trim() === FAKE_PASSWORD) {
+        try {
+          // Simulation d'un token
+          const fakeToken = 'abc123xyz';
+          await AsyncStorage.setItem('userToken', fakeToken);
+
+          Alert.alert('Succès', 'Connexion réussie !', [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Main' }],
+                });
+              }
+            }
+          ]);
+        } catch (error) {
+          console.log('Erreur Auth:', error);
+          Alert.alert('Erreur', 'Une erreur est survenue, réessayez.');
+        }
+      } else {
+        Alert.alert(
+          'Identifiants incorrects', 
+          'Numéro de téléphone ou mot de passe incorrect.\n\nTest avec:\nTél: +221771234567\nMot de passe: passer123'
+        );
       }
     } else {
-      // Logique d'inscription fictive...
-      alert("Fonctionnalité d'inscription à implémenter."); 
+      // Vérifications simples pour l'inscription
+      if (!firstName || !lastName || !email || !phoneNumber || !cni || !birthDate || !address || !password || !confirmPassword) {
+        Alert.alert('Erreur', 'Veuillez remplir tous les champs.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
+        return;
+      }
+
+      // Inscription fictive
+      Alert.alert('Inscription', 'Compte créé avec succès ! Connectez-vous.', [
+        {
+          text: 'OK',
+          onPress: () => setIsLogin(true)
+        }
+      ]);
     }
   };
 
@@ -34,11 +89,9 @@ const LoginScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         
-        {/* Titre principal */}
         <Text style={styles.appTitle}>DigiTontine</Text>
         <Text style={styles.appSubtitle}>Votre tontine, simplifiée et sécurisée.</Text>
         
-        {/* Toggle Se Connecter / S'inscrire */}
         <View style={styles.toggleContainer}>
           <TouchableOpacity 
             style={[styles.toggleButton, isLogin && styles.activeToggle]}
@@ -56,10 +109,10 @@ const LoginScreen = ({ navigation }) => {
 
         {isLogin ? (
           <>
-            {/* Formulaire de Connexion */}
             <Text style={styles.welcomeText}>Ravi de vous revoir !</Text>
             
-            {/* Numéro de téléphone */}
+            
+
             <Text style={styles.inputLabel}>Numéro de téléphone</Text>
             <TextInput
               style={styles.input}
@@ -70,7 +123,6 @@ const LoginScreen = ({ navigation }) => {
               onChangeText={setPhoneNumber}
             />
             
-            {/* Mot de passe */}
             <Text style={styles.inputLabel}>Mot de passe</Text>
             <View style={styles.passwordContainer}>
               <TextInput
@@ -93,31 +145,118 @@ const LoginScreen = ({ navigation }) => {
               <Text style={styles.forgotPasswordText}>Mot de passe oublié ?</Text>
             </TouchableOpacity>
 
-            {/* Bouton Se Connecter */}
             <TouchableOpacity style={styles.loginButton} onPress={handleAuth}>
+              <Ionicons name="log-in-outline" size={20} color={Colors.textDark} style={{ marginRight: 8 }} />
               <Text style={styles.loginButtonText}>Se Connecter</Text>
             </TouchableOpacity>
           </>
         ) : (
           <View style={{ marginTop: 40 }}>
             <Text style={styles.welcomeText}>Créer votre compte</Text>
-            <Text style={styles.inputLabel}>Nom Complet</Text>
-            <TextInput style={styles.input} placeholder="Votre nom" />
+
+            {/* Prénom */}
+            <Text style={styles.inputLabel}>Prénom</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Votre prénom"
+              value={firstName}
+              onChangeText={setFirstName}
+            />
+
+            {/* Nom */}
+            <Text style={styles.inputLabel}>Nom</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Votre nom"
+              value={lastName}
+              onChangeText={setLastName}
+            />
+
+            {/* Email */}
+            <Text style={styles.inputLabel}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="exemple@email.com"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+            />
+
+            {/* Numéro de téléphone */}
             <Text style={styles.inputLabel}>Numéro de téléphone</Text>
-            <TextInput style={styles.input} placeholder="+221 7X XXX XX XX" keyboardType="phone-pad" />
+            <TextInput
+              style={styles.input}
+              placeholder="+221 7X XXX XX XX"
+              keyboardType="phone-pad"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+            />
+
+            {/* CNI */}
+            <Text style={styles.inputLabel}>CNI (Format sénégalais)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="1234567890"
+              keyboardType="numeric"
+              value={cni}
+              onChangeText={setCni}
+            />
+
+            {/* Date de naissance */}
+            <Text style={styles.inputLabel}>Date de naissance</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="JJ/MM/AAAA"
+              value={birthDate}
+              onChangeText={setBirthDate}
+            />
+
+            {/* Adresse */}
+            <Text style={styles.inputLabel}>Adresse</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Votre adresse"
+              value={address}
+              onChangeText={setAddress}
+            />
+
+            {/* Photo de profil */}
+            <Text style={styles.inputLabel}>Photo de profil (optionnel)</Text>
+            <TouchableOpacity
+              style={styles.photoUploadButton}
+              onPress={() => alert('Fonctionnalité upload photo')}
+            >
+              <Ionicons name="camera-outline" size={20} color={Colors.placeholder} />
+              <Text style={styles.photoUploadText}>Ajouter une photo</Text>
+            </TouchableOpacity>
+
+            {/* Mot de passe */}
             <Text style={styles.inputLabel}>Mot de passe</Text>
-            <TextInput style={styles.input} placeholder="Choisissez un mot de passe" secureTextEntry />
-             <TouchableOpacity style={styles.loginButton} onPress={handleAuth}>
+            <TextInput
+              style={styles.input}
+              placeholder="Choisissez un mot de passe"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+            />
+
+            {/* Confirmation mot de passe */}
+            <Text style={styles.inputLabel}>Confirmer le mot de passe</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Confirmez votre mot de passe"
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+
+            {/* Bouton s'inscrire */}
+            <TouchableOpacity style={styles.loginButton} onPress={handleAuth}>
+              <Ionicons name="person-add-outline" size={20} color={Colors.textDark} style={{ marginRight: 8 }} />
               <Text style={styles.loginButtonText}>S'inscrire</Text>
             </TouchableOpacity>
           </View>
         )}
-
-        {/* Mentions légales */}
-        <Text style={styles.legalText}>
-          En continuant, vous acceptez nos <Text style={styles.linkText}>Conditions d'utilisation</Text> et notre <Text style={styles.linkText}>Politique de confidentialité</Text>
-        </Text>
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -126,6 +265,7 @@ const LoginScreen = ({ navigation }) => {
 LoginScreen.propTypes = {
   navigation: PropTypes.shape({
     replace: PropTypes.func.isRequired,
+    reset: PropTypes.func.isRequired,
     navigate: PropTypes.func.isRequired,
   }).isRequired,
 };
@@ -140,7 +280,6 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 40,
   },
-  // Titres
   appTitle: {
     fontSize: 32,
     fontWeight: 'bold',
@@ -154,7 +293,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 40,
   },
-  // Toggle
   toggleContainer: {
     flexDirection: 'row',
     backgroundColor: Colors.inputBackground,
@@ -184,12 +322,27 @@ const styles = StyleSheet.create({
   activeToggleText: {
     color: Colors.primaryDark,
   },
-  // Formulaire
   welcomeText: {
     fontSize: 24,
     fontWeight: 'bold',
     color: Colors.textDark,
     marginBottom: 20,
+  },
+  testInfoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8f4fd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.primaryDark,
+  },
+  testInfoText: {
+    fontSize: 13,
+    color: Colors.primaryDark,
+    marginLeft: 8,
+    fontWeight: '500',
   },
   inputLabel: {
     fontSize: 16,
@@ -230,12 +383,13 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
     fontWeight: '600',
   },
-  // Bouton Connexion
   loginButton: {
+    flexDirection: 'row',
     backgroundColor: Colors.accentYellow,
     borderRadius: 10,
     paddingVertical: 18,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: Colors.accentYellow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -248,17 +402,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.textDark,
   },
-  // Mentions légales
-  legalText: {
-    fontSize: 14,
-    color: Colors.placeholder,
-    textAlign: 'center',
-    marginTop: 40,
-    lineHeight: 20,
+  photoUploadButton: {
+    flexDirection: 'row',
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
   },
-  linkText: {
-    color: Colors.primaryDark,
-    fontWeight: '600',
+  photoUploadText: {
+    color: Colors.placeholder,
+    fontSize: 16,
+    marginLeft: 8,
   },
 });
 

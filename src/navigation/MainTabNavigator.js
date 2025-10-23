@@ -7,6 +7,7 @@ import PropTypes from 'prop-types';
 import HomeScreen from '../screens/Home/HomeScreen';
 import TransactionListScreen from '../screens/Transactions/TransactionListScreen';
 
+
 const Tab = createBottomTabNavigator();
 
 // Composant vide pour simuler les autres écrans (en dehors du composant principal)

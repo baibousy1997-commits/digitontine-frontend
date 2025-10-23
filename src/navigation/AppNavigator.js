@@ -4,6 +4,15 @@ import { createStackNavigator } from '@react-navigation/stack';
 // Importation des écrans et des navigateurs
 import MainTabNavigator from './MainTabNavigator';
 import LoginScreen from '../screens/Auth/LoginScreen'; 
+import ChooseTontineActionScreen from '../screens/Tontine/ChooseTontineActionScreen';
+import CreateTontineScreen from '../screens/Tontine/CreateTontineScreen';
+import AddMembersScreen from '../screens/Tontine/AddMembersScreen'; 
+import ProfileScreen from '../screens/Profile/ProfileScreen';
+import AccountScreen from '../screens/Home/AccountScreen';
+import SettingsScreen from '../screens/Home/SettingsScreen';
+import ChangePasswordScreen from '../screens/Home/ChangePasswordScreen';
+import CreateUsersScreen from '../screens/Users/CreateUsersScreen';
+
 
 const Stack = createStackNavigator();
 
@@ -15,14 +24,30 @@ const Stack = createStackNavigator();
 const AppNavigator = () => {
   return (
     <Stack.Navigator
-      initialRouteName="Auth" // Commence par l'écran d'authentification
-      screenOptions={{ headerShown: false }} // Cache l'en-tête pour tous les écrans
+      initialRouteName="Auth"
+      screenOptions={{ headerShown: false }}
     >
       {/* Écran de Connexion (Auth) */}
       <Stack.Screen name="Auth" component={LoginScreen} />
       
-      {/* Navigation Principale (Main) après connexion réussie */}
+      {/* Navigation principale */}
       <Stack.Screen name="Main" component={MainTabNavigator} />
+
+      {/* Écrans Tontine */}
+      <Stack.Screen name="ChooseTontineAction" component={ChooseTontineActionScreen} />
+      <Stack.Screen name="CreateTontine" component={CreateTontineScreen} />
+      <Stack.Screen name="AddMembers" component={AddMembersScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="Account" component={AccountScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <Stack.Screen
+        name="CreateUser"
+        component={CreateUsersScreen}
+        options={{ title: 'Créer un utilisateur', headerShown: false }}
+      />
+
+
     </Stack.Navigator>
   );
 };

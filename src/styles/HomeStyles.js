@@ -1,5 +1,5 @@
 import { StyleSheet, Platform, Dimensions } from 'react-native';
-import Colors from '../constants/Colors';
+import Colors from '../constants/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -277,7 +277,57 @@ const HomeStyles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     zIndex: 1,
-  }
+  },
+  // --- Carte Créer Utilisateur (Fond blanc) ---
+userCard: {
+  backgroundColor: Colors.textLightpr, // fond blanc
+  borderRadius: 15,
+  padding: 20,
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  ...Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+    },
+    android: {
+      elevation: 4,
+    },
+  }),
+},
+userCardLeft: {
+  flex: 0.65,
+},
+userCardRight: {
+  flex: 0.35,
+  alignItems: 'flex-end',
+  justifyContent: 'space-between',
+},
+userCardTitle: {
+  fontSize: 18,
+  fontWeight: 'bold',
+  color: Colors.textDark,
+  marginBottom: 5,
+},
+userCardSubtitle: {
+  fontSize: 14,
+  color: Colors.placeholder,
+},
+userCardIcon: {
+  position: 'absolute',
+  top: -10,
+  right: -10,
+  opacity: 0.3,
+},
+detailsTextDark: {
+  fontSize: 14,
+  color: Colors.textDark,
+  fontWeight: '600',
+},
+
 });
 
 export default HomeStyles;
