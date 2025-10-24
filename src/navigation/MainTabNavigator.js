@@ -5,8 +5,6 @@ import PropTypes from 'prop-types';
 
 // Importation des écrans
 import HomeScreen from '../screens/Home/HomeScreen';
-import TransactionListScreen from '../screens/Transactions/TransactionListScreen';
-
 
 const Tab = createBottomTabNavigator();
 
@@ -28,6 +26,7 @@ const makeScreenComponent = (name) => {
   return ScreenComponent;
 };
 
+const WalletScreenPlaceholder = makeScreenComponent('Wallet');
 const NotificationsScreenPlaceholder = makeScreenComponent('Notifications');
 const ContactScreenPlaceholder = makeScreenComponent('Contact');
 
@@ -43,7 +42,7 @@ const MainTabNavigator = () => {
       }}
     >
       <Tab.Screen name="Accueil" component={HomeScreen} />
-      <Tab.Screen name="Wallet" component={TransactionListScreen} />
+      <Tab.Screen name="Wallet" component={WalletScreenPlaceholder} />
       {/* L'onglet central "+" n'est pas un écran, il est géré par un bouton flottant dans HomeScreen */}
       <Tab.Screen name="Notifications" component={NotificationsScreenPlaceholder} />
       <Tab.Screen name="Contact" component={ContactScreenPlaceholder} />

@@ -6,16 +6,22 @@ import {
   StatusBar,
   Switch,
   StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
 import Colors from '../../constants/colors';
 import SettingsStyles from '../../styles/SettingsScreenStyles';
+import { useAuthContext } from '../../context/AuthContext';
 
 const SettingsScreen = ({ navigation }) => {
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [themeColors, setThemeColors] = useState(Colors);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const { logout } = useAuthContext();
 
   // Basculer entre clair et sombre
   useEffect(() => {
@@ -32,6 +38,44 @@ const SettingsScreen = ({ navigation }) => {
       setThemeColors(Colors);
     }
   }, [darkModeEnabled]);
+
+  /**
+   * Gérer la déconnexion
+   */
+  const handleLogout = () => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: async () => {
+            setLoggingOut(true);
+            try {
+              const result = await logout();
+              
+              if (result.success) {
+                console.log('✅ Déconnexion réussie');
+                // La navigation se fera automatiquement via AppNavigator
+              } else {
+                Alert.alert('Erreur', 'Impossible de se déconnecter. Réessayez.');
+              }
+            } catch (error) {
+              console.error('Erreur déconnexion:', error);
+              Alert.alert('Erreur', 'Une erreur est survenue lors de la déconnexion.');
+            } finally {
+              setLoggingOut(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView
@@ -106,18 +150,37 @@ const SettingsScreen = ({ navigation }) => {
               Changer mon mot de passe
             </Text>
           </View>
+          <Ionicons name="chevron-forward" size={20} color={themeColors.placeholder} />
+        </TouchableOpacity>
+
+        {/* Déconnexion */}
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={handleLogout}
+          disabled={loggingOut}
+        >
+          <View style={styles.settingLeft}>
+            <View style={[styles.iconContainer, { backgroundColor: 'rgba(231, 76, 60, 0.1)' }]}>
+              <Ionicons name="log-out-outline" size={24} color="#E74C3C" />
+            </View>
+            <Text style={[styles.settingText, { color: '#E74C3C' }]}>
+              Se déconnecter
+            </Text>
+          </View>
+          {loggingOut && <ActivityIndicator size="small" color="#E74C3C" />}
         </TouchableOpacity>
 
         {/* Supprimer compte */}
         <TouchableOpacity style={styles.settingItem}>
           <View style={styles.settingLeft}>
-            <View style={styles.iconContainer}>
+            <View style={[styles.iconContainer, { backgroundColor: 'rgba(231, 76, 60, 0.1)' }]}>
               <Ionicons name="trash-outline" size={24} color="#E74C3C" />
             </View>
             <Text style={[styles.settingText, { color: '#E74C3C' }]}>
               Supprimer mon compte
             </Text>
           </View>
+          <Ionicons name="chevron-forward" size={20} color={themeColors.placeholder} />
         </TouchableOpacity>
 
       </View>
@@ -128,6 +191,7 @@ const SettingsScreen = ({ navigation }) => {
 SettingsScreen.propTypes = {
   navigation: PropTypes.shape({
     goBack: PropTypes.func.isRequired,
+    navigate: PropTypes.func.isRequired,
   }).isRequired,
 };
 
