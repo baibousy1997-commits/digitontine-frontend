@@ -1,144 +1,123 @@
 // src/navigation/AppNavigator.js
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { ActivityIndicator, View } from 'react-native';
-
-// Context d'authentification
 import { useAuthContext } from '../context/AuthContext';
+import { ActivityIndicator, View, Text } from 'react-native';
 
-// Navigateurs
-import MainTabNavigator from './MainTabNavigator';
-
-// Écrans d'authentification
+// Auth Screens
 import LoginScreen from '../screens/Auth/LoginScreen';
-import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
 import RegisterAdminScreen from '../screens/Auth/RegisterAdminScreen';
+import ForgotPasswordScreen from '../screens/Auth/ForgotPasswordScreen';
 import FirstPasswordChangeScreen from '../screens/Auth/FirstPasswordChangeScreen';
 
-// Écrans Tontine
+// Main Screens
+import HomeScreen from '../screens/Home/HomeScreen';
+import DashboardAdminScreen from '../screens/Dashboard/DashboardAdminScreen';
+import DashboardTresorierScreen from '../screens/Dashboard/DashboardTresorierScreen';
+import DashboardMembreScreen from '../screens/Dashboard/DashboardMembreScreen';
+import ProfileScreen from '../screens/Profile/ProfileScreen';
+import AccountScreen from '../screens/Account/AccountScreen';
+import SettingsScreen from '../screens/Settings/SettingsScreen';
+import ChangePasswordScreen from '../screens/Settings/ChangePasswordScreen';
+import CreateUsersScreen from '../screens/Users/CreateUsersScreen';
+
+// Tontine Screens
 import ChooseTontineActionScreen from '../screens/Tontine/ChooseTontineActionScreen';
 import CreateTontineScreen from '../screens/Tontine/CreateTontineScreen';
 import AddMembersScreen from '../screens/Tontine/AddMembersScreen';
 
-// Écrans Profil et Paramètres
-import ProfileScreen from '../screens/Profile/ProfileScreen';
-import AccountScreen from '../screens/Home/AccountScreen';
-import SettingsScreen from '../screens/Home/SettingsScreen';
-import ChangePasswordScreen from '../screens/Home/ChangePasswordScreen';
-
-// Écrans Utilisateurs
-import CreateUsersScreen from '../screens/Users/CreateUsersScreen';
-
 const Stack = createStackNavigator();
 
-/**
- * AppNavigator avec gestion automatique de l'authentification
- * Navigation dynamique basée sur isAuthenticated et user.isFirstLogin
- */
-const AppNavigator = () => {
-  const { isAuthenticated, loading, user } = useAuthContext();
+const AuthStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="Login" component={LoginScreen} />
+    <Stack.Screen name="RegisterAdmin" component={RegisterAdminScreen} />
+    <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+  </Stack.Navigator>
+);
 
-  // Écran de chargement pendant la vérification de l'authentification
+const MainStack = () => (
+  <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Screen name="Accueil" component={HomeScreen} />
+    
+    <Stack.Screen name="DashboardAdmin" component={DashboardAdminScreen} />
+    <Stack.Screen name="DashboardTresorier" component={DashboardTresorierScreen} />
+    <Stack.Screen name="DashboardMembre" component={DashboardMembreScreen} />
+    
+    <Stack.Screen name="Profile" component={ProfileScreen} />
+    <Stack.Screen name="Account" component={AccountScreen} />
+    
+    <Stack.Screen name="Settings" component={SettingsScreen} />
+    <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+    
+    <Stack.Screen name="CreateUser" component={CreateUsersScreen} />
+    
+    <Stack.Screen name="ChooseTontineAction" component={ChooseTontineActionScreen} />
+    <Stack.Screen name="CreateTontine" component={CreateTontineScreen} />
+    <Stack.Screen name="AddMembers" component={AddMembersScreen} />
+    
+    <Stack.Screen 
+      name="Wallet" 
+      component={() => (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Wallet - A venir</Text>
+        </View>
+      )}
+    />
+    <Stack.Screen 
+      name="Notifications" 
+      component={() => (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Notifications - A venir</Text>
+        </View>
+      )}
+    />
+    <Stack.Screen 
+      name="MyTontines" 
+      component={() => (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Mes Tontines - A venir</Text>
+        </View>
+      )}
+    />
+  </Stack.Navigator>
+);
+
+const AppNavigator = () => {
+  const { isAuthenticated, loading, requiresPasswordChange } = useAuthContext();
+
+  // DEBUG: Logger les changements d'état
+  useEffect(() => {
+    console.log('===== AppNavigator State Change =====');
+    console.log('isAuthenticated:', isAuthenticated);
+    console.log('requiresPasswordChange:', requiresPasswordChange);
+    console.log('loading:', loading);
+  }, [isAuthenticated, requiresPasswordChange, loading]);
+
   if (loading) {
+    console.log('Affichage: Loading');
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#2b6cb0" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#004aad" />
       </View>
     );
   }
 
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {!isAuthenticated ? (
-        // ========================================
-        // ROUTES D'AUTHENTIFICATION (Publiques)
-        // ========================================
-        <>
-          <Stack.Screen 
-            name="Login" 
-            component={LoginScreen}
-            options={{ title: 'Connexion' }}
-          />
-          <Stack.Screen 
-            name="ForgotPassword" 
-            component={ForgotPasswordScreen}
-            options={{ title: 'Mot de passe oublie' }}
-          />
-          <Stack.Screen 
-            name="RegisterAdmin" 
-            component={RegisterAdminScreen}
-            options={{ title: 'Creer un Admin' }}
-          />
-        </>
-      ) : user?.isFirstLogin ? (
-        // ========================================
-        // CHANGEMENT DE MOT DE PASSE OBLIGATOIRE
-        // ========================================
+  if (isAuthenticated && requiresPasswordChange) {
+    console.log('Affichage: FirstPasswordChange');
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen 
           name="FirstPasswordChange" 
           component={FirstPasswordChangeScreen}
-          options={{ 
-            title: 'Changement obligatoire',
-            gestureEnabled: false,
-          }}
+          options={{ animationEnabled: false }}
         />
-      ) : (
-        // ========================================
-        // ROUTES PROTÉGÉES (Authentifié)
-        // ========================================
-        <>
-          {/* Navigation principale (Tabs avec HomeScreen) */}
-          <Stack.Screen name="Main" component={MainTabNavigator} />
+      </Stack.Navigator>
+    );
+  }
 
-          {/* Écrans Tontine */}
-          <Stack.Screen 
-            name="ChooseTontineAction" 
-            component={ChooseTontineActionScreen}
-            options={{ title: 'Action Tontine' }}
-          />
-          <Stack.Screen 
-            name="CreateTontine" 
-            component={CreateTontineScreen}
-            options={{ title: 'Creer une tontine' }}
-          />
-          <Stack.Screen 
-            name="AddMembers" 
-            component={AddMembersScreen}
-            options={{ title: 'Ajouter des membres' }}
-          />
-
-          {/* Écrans Profil */}
-          <Stack.Screen 
-            name="Profile" 
-            component={ProfileScreen}
-            options={{ title: 'Profil' }}
-          />
-          <Stack.Screen 
-            name="Account" 
-            component={AccountScreen}
-            options={{ title: 'Mon compte' }}
-          />
-          <Stack.Screen 
-            name="Settings" 
-            component={SettingsScreen}
-            options={{ title: 'Parametres' }}
-          />
-          <Stack.Screen 
-            name="ChangePassword" 
-            component={ChangePasswordScreen}
-            options={{ title: 'Changer le mot de passe' }}
-          />
-
-          {/* Écrans Utilisateurs (Admin uniquement) */}
-          <Stack.Screen
-            name="CreateUser"
-            component={CreateUsersScreen}
-            options={{ title: 'Creer un utilisateur' }}
-          />
-        </>
-      )}
-    </Stack.Navigator>
-  );
+  console.log('Affichage:', isAuthenticated ? 'MainStack' : 'AuthStack');
+  return isAuthenticated ? <MainStack /> : <AuthStack />;
 };
 
 export default AppNavigator;

@@ -49,11 +49,29 @@ const AccountStyles = StyleSheet.create({
     borderWidth: 3,
     borderColor: Colors.textLight,
   },
+  // Nouveau : Style pour avatar avec initiales
+  avatarWithInitials: {
+    backgroundColor: Colors.primaryDark,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Nouveau : Style pour les initiales
+  avatarInitials: {
+    color: '#fff',
+    fontSize: 36,
+    fontWeight: '700',
+  },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
     color: Colors.textDark,
     marginTop: 10,
+  },
+  userRole: {
+    fontSize: 16,
+    color: Colors.textSecondary || '#666',
+    marginTop: 5,
+    fontWeight: '500',
   },
   menuContainer: {
     flex: 1,
@@ -88,6 +106,13 @@ const AccountStyles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textDark,
     fontWeight: '500',
+    flex: 1,
+  },
+  // Nouveau : Style pour le bouton deconnexion
+  logoutItem: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
   },
 });
 

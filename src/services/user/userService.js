@@ -26,12 +26,12 @@ const userService = {
       formData.append(key, data[key]);
     });
     
-    // Ajouter la photo si présente
+    // ✅ CORRECTION : Envoyer le fichier correctement pour React Native
     if (photoIdentite) {
       formData.append('photoIdentite', {
         uri: photoIdentite.uri,
         type: photoIdentite.type || 'image/jpeg',
-        name: photoIdentite.name || 'photo.jpg',
+        name: photoIdentite.name || `photo_${Date.now()}.jpg`,
       });
     }
 
@@ -55,11 +55,12 @@ const userService = {
       formData.append(key, data[key]);
     });
     
+    // ✅ CORRECTION : Envoyer le fichier correctement pour React Native
     if (photoIdentite) {
       formData.append('photoIdentite', {
         uri: photoIdentite.uri,
         type: photoIdentite.type || 'image/jpeg',
-        name: photoIdentite.name || 'photo.jpg',
+        name: photoIdentite.name || `photo_${Date.now()}.jpg`,
       });
     }
 
@@ -74,16 +75,6 @@ const userService = {
   // LISTE ET RECHERCHE
   // ========================================
 
-  /**
-   * Liste des utilisateurs avec filtres et pagination
-   * @param {object} params - Paramètres de recherche
-   * @param {number} params.page - Numéro de page
-   * @param {number} params.limit - Nombre d'éléments par page
-   * @param {string} params.role - Filtrer par rôle (Membre, Tresorier, Administrateur)
-   * @param {boolean} params.isActive - Filtrer par statut (true/false)
-   * @param {string} params.search - Recherche textuelle
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async listUsers(params = {}) {
     const queryParams = new URLSearchParams();
     
@@ -97,10 +88,6 @@ const userService = {
     return await get(url);
   },
 
-  /**
-   * Obtenir les statistiques des utilisateurs
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async getUserStats() {
     return await get(API_CONFIG.ENDPOINTS.USERS.STATS);
   },
@@ -109,30 +96,14 @@ const userService = {
   // DÉTAILS ET MODIFICATION
   // ========================================
 
-  /**
-   * Obtenir les détails d'un utilisateur
-   * @param {string} userId - ID de l'utilisateur
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async getUserDetails(userId) {
     return await get(API_CONFIG.ENDPOINTS.USERS.DETAILS(userId));
   },
 
-  /**
-   * Modifier un utilisateur (Admin uniquement)
-   * @param {string} userId - ID de l'utilisateur
-   * @param {object} data - Données à modifier
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async updateUser(userId, data) {
     return await put(API_CONFIG.ENDPOINTS.USERS.UPDATE(userId), data);
   },
 
-  /**
-   * Modifier mon propre profil
-   * @param {object} data - Données à modifier (numeroTelephone, adresse, preferences)
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async updateMyProfile(data) {
     return await put(API_CONFIG.ENDPOINTS.USERS.UPDATE_MY_PROFILE, data);
   },
@@ -148,10 +119,12 @@ const userService = {
    */
   async updateProfilePhoto(photo) {
     const formData = new FormData();
+    
+    // ✅ CORRECTION : Format React Native
     formData.append('photoProfil', {
       uri: photo.uri,
       type: photo.type || 'image/jpeg',
-      name: photo.name || 'profile.jpg',
+      name: photo.name || `profile_${Date.now()}.jpg`,
     });
 
     return await put(API_CONFIG.ENDPOINTS.USERS.UPDATE_PROFILE_PHOTO, formData, {
@@ -161,10 +134,6 @@ const userService = {
     });
   },
 
-  /**
-   * Supprimer ma photo de profil
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async deleteProfilePhoto() {
     return await del(API_CONFIG.ENDPOINTS.USERS.DELETE_PROFILE_PHOTO);
   },
@@ -173,13 +142,6 @@ const userService = {
   // ACTIVATION/DÉSACTIVATION
   // ========================================
 
-  /**
-   * Activer/Désactiver un utilisateur (avec double validation)
-   * @param {string} userId - ID de l'utilisateur
-   * @param {string} validationRequestId - ID de la demande de validation
-   * @param {string} raison - Raison de l'action (optionnel)
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async toggleActivation(userId, validationRequestId, raison = '') {
     return await post(API_CONFIG.ENDPOINTS.USERS.TOGGLE_ACTIVATION(userId), {
       validationRequestId,
@@ -191,12 +153,6 @@ const userService = {
   // SUPPRESSION
   // ========================================
 
-  /**
-   * Supprimer un utilisateur (avec double validation)
-   * @param {string} userId - ID de l'utilisateur
-   * @param {string} validationRequestId - ID de la demande de validation
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async deleteUser(userId, validationRequestId) {
     return await del(API_CONFIG.ENDPOINTS.USERS.DELETE(userId), {
       data: {
@@ -210,12 +166,6 @@ const userService = {
   // RÉINITIALISATION MOT DE PASSE (Admin)
   // ========================================
 
-  /**
-   * Réinitialiser le mot de passe d'un utilisateur (Admin)
-   * @param {string} userId - ID de l'utilisateur
-   * @param {boolean} notifyUser - Envoyer un email à l'utilisateur (défaut: true)
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async adminResetPassword(userId, notifyUser = true) {
     return await post(API_CONFIG.ENDPOINTS.USERS.RESET_PASSWORD(userId), {
       notifyUser,

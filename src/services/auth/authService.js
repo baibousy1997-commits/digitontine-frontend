@@ -10,7 +10,7 @@ import tokenManager from '../../utils/tokenManager';
 
 const authService = {
   // ========================================
-  // CONNEXION (2 ÉTAPES OU DIRECTE)
+  // CONNEXION (2 ÉTAPES OBLIGATOIRES)
   // ========================================
 
   /**
@@ -28,7 +28,7 @@ const authService = {
     if (result.success && result.data?.data) {
       const responseData = result.data.data;
 
-      // CAS 1 : OTP requis (2FA activé)
+      // TOUJOURS OTP requis maintenant
       if (responseData.requiresOTP) {
         return {
           success: true,
@@ -39,16 +39,14 @@ const authService = {
         };
       }
 
-      // CAS 2 : Connexion directe sans OTP (tokens retournés directement)
+      // Cas connexion directe (ne devrait plus arriver)
       if (responseData.accessToken && responseData.user) {
         const { user, accessToken, refreshToken, requiresPasswordChange } = responseData;
 
-        // Sauvegarder les tokens et les infos utilisateur
         await tokenManager.saveTokens(accessToken, refreshToken);
         await tokenManager.saveUser(user);
 
-        console.log('✅ Tokens sauvegardés:', { accessToken: accessToken.substring(0, 20) + '...' });
-        console.log('✅ User sauvegardé:', user);
+        console.log('Tokens sauvegardes (connexion directe)');
 
         return {
           success: true,
@@ -63,12 +61,14 @@ const authService = {
   },
 
   /**
-   * Étape 2 : Vérification du code OTP (uniquement si OTP requis)
-   * @param {string} email - Email de l'utilisateur
+   * Étape 2 : Vérification du code OTP
+   * @param {string} email - Email de l'utilisateur (depuis étape 1)
    * @param {string} code - Code OTP à 6 chiffres
    * @returns {Promise<{success: boolean, data?: any, error?: any}>}
    */
   async verifyLoginOTP(email, code) {
+    console.log('Envoi verification OTP:', { email, code });
+
     const result = await post(API_CONFIG.ENDPOINTS.AUTH.LOGIN_STEP2, {
       email,
       code,
@@ -81,7 +81,7 @@ const authService = {
       await tokenManager.saveTokens(accessToken, refreshToken);
       await tokenManager.saveUser(user);
 
-      console.log('✅ OTP vérifié, tokens sauvegardés');
+      console.log('OTP verifie, tokens sauvegardes');
 
       return {
         success: true,
@@ -121,6 +121,18 @@ const authService = {
     });
   },
 
+  /**
+   * Confirmer le changement de mot de passe via le token du lien email
+   * @param {string} token - Token reçu du lien email
+   * @param {string} action - 'approve' ou 'reject'
+   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   */
+  async confirmPasswordChange(token, action = 'approve') {
+    return await get(
+      `${API_CONFIG.ENDPOINTS.AUTH.CONFIRM_PASSWORD_CHANGE}/${token}?action=${action}`
+    );
+  },
+
   // ========================================
   // CHANGEMENT DE MOT DE PASSE
   // ========================================
@@ -138,38 +150,104 @@ const authService = {
     });
   },
 
-  /**
-   * Changement de mot de passe volontaire
-   * @param {string} ancienMotDePasse - Ancien mot de passe
-   * @param {string} nouveauMotDePasse - Nouveau mot de passe
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
-  async changePassword(ancienMotDePasse, nouveauMotDePasse) {
-    return await post(API_CONFIG.ENDPOINTS.AUTH.CHANGE_PASSWORD, {
-      ancienMotDePasse,
-      nouveauMotDePasse,
-    });
-  },
+
+
+
+
+/**
+ * Changement de mot de passe volontaire (AVEC confirmation email)
+ * @param {string} ancienMotDePasse - Ancien mot de passe
+ * @param {string} nouveauMotDePasse - Nouveau mot de passe
+ * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+ */
+async changePassword(ancienMotDePasse, nouveauMotDePasse) {
+  return await post(API_CONFIG.ENDPOINTS.AUTH.CHANGE_PASSWORD, {
+    ancienMotDePasse,
+    nouveauMotDePasse,
+  });
+},
 
   // ========================================
   // PROFIL
   // ========================================
 
-  /**
-   * Obtenir mon profil
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
-  async getMe() {
-    return await get(API_CONFIG.ENDPOINTS.AUTH.GET_ME);
-  },
+/**
+ * Obtenir mon profil
+ * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+ */
+async getMe() {
+  try {
+    console.log('🔍 Appel API getMe...');
+    const result = await get(API_CONFIG.ENDPOINTS.AUTH.GET_ME);
+    
+    console.log('📦 Réponse brute getMe:', JSON.stringify(result, null, 2));
+    
+    // Vérifier la structure de la réponse
+    if (result.success) {
+      console.log('✅ Success = true');
+      console.log('📄 result.data:', result.data);
+      
+      // Si la réponse a result.data.data (double imbrication)
+      if (result.data && result.data.data) {
+        console.log('⚠️ Double imbrication détectée - extraction de data.data');
+        return {
+          success: true,
+          data: result.data.data,
+        };
+      }
+      
+      // Si la réponse a directement result.data
+      if (result.data) {
+        console.log('✅ Structure normale - data directement accessible');
+        return result;
+      }
+    }
+    
+    console.log('❌ Pas de données dans la réponse');
+    return result;
+    
+  } catch (error) {
+    console.error('💥 Exception getMe:', error);
+    return {
+      success: false,
+      error: {
+        message: error.message || 'Erreur lors de la récupération du profil',
+        isNetworkError: error?.isNetworkError || false,
+      },
+    };
+  }
+},
 
-  /**
-   * Vérifier la validité du token
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
-  async verifyToken() {
-    return await get(API_CONFIG.ENDPOINTS.AUTH.VERIFY_TOKEN);
-  },
+/**
+ * Vérifier la validité du token
+ * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+ */
+async verifyToken() {
+  try {
+    const result = await get(API_CONFIG.ENDPOINTS.AUTH.VERIFY_TOKEN);
+    
+    // Propager le flag isNetworkError si présent
+    if (!result.success && result.error?.isNetworkError) {
+      return {
+        success: false,
+        error: {
+          ...result.error,
+          isNetworkError: true,
+        },
+      };
+    }
+    
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      error: {
+        ...error,
+        isNetworkError: error?.isNetworkError || false,
+      },
+    };
+  }
+},
 
   // ========================================
   // DÉCONNEXION

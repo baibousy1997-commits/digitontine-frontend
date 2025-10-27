@@ -41,11 +41,59 @@ const MainTabNavigator = () => {
         tabBarStyle: { display: 'none', height: 0 }, 
       }}
     >
-      <Tab.Screen name="Accueil" component={HomeScreen} />
-      <Tab.Screen name="Wallet" component={WalletScreenPlaceholder} />
-      {/* L'onglet central "+" n'est pas un écran, il est géré par un bouton flottant dans HomeScreen */}
-      <Tab.Screen name="Notifications" component={NotificationsScreenPlaceholder} />
-      <Tab.Screen name="Contact" component={ContactScreenPlaceholder} />
+      <Stack.Screen 
+  name="Home" 
+  component={HomeScreen} 
+  options={{ headerShown: false }} 
+/>
+
+{/* Dashboards */}
+<Stack.Screen 
+  name="DashboardAdmin" 
+  component={DashboardAdminScreen} 
+  options={{ headerShown: false }} 
+/>
+<Stack.Screen 
+  name="DashboardTresorier" 
+  component={DashboardTresorierScreen} 
+  options={{ headerShown: false }} 
+/>
+<Stack.Screen 
+  name="DashboardMembre" 
+  component={DashboardMembreScreen} 
+  options={{ headerShown: false }} 
+/>
+
+{/* Profil et Compte */}
+<Stack.Screen 
+  name="Profile" 
+  component={ProfileScreen} 
+  options={{ headerShown: false }} 
+/>
+<Stack.Screen 
+  name="Account" 
+  component={AccountScreen} 
+  options={{ headerShown: false }} 
+/>
+
+{/* Paramètres */}
+<Stack.Screen 
+  name="Settings" 
+  component={SettingsScreen} 
+  options={{ headerShown: false }} 
+/>
+<Stack.Screen 
+  name="ChangePassword" 
+  component={ChangePasswordScreen} 
+  options={{ headerShown: false }} 
+/>
+
+{/* Utilisateurs (Admin) */}
+<Stack.Screen 
+  name="CreateUser" 
+  component={CreateUsersScreen} 
+  options={{ headerShown: false }} 
+/>
     </Tab.Navigator>
   );
 };

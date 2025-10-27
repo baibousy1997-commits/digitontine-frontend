@@ -1,10 +1,12 @@
 // src/config/api.config.js
 /**
  * Configuration centralisée de l'API DigiTontine
- * Contient toutes les URLs et paramètres pour communiquer avec le backend
+ * ✅ Valeurs en dur temporaires (à remplacer par .env + app.json après)
  */
 
-// IMPORTANT : Remplacez ces valeurs par vos vraies valeurs ou utilisez un fichier .env
+// ========================================
+// CONFIGURATION API
+// ========================================
 const API_BASE_URL = 'https://digitontine-backend.onrender.com';
 const API_KEY = 'digitontine_2025_secret_key_change_this_in_production';
 const API_PREFIX = '/digitontine';
@@ -15,34 +17,30 @@ const API_CONFIG = {
   API_PREFIX: API_PREFIX,
   FULL_URL: `${API_BASE_URL}${API_PREFIX}`,
   
-  // Clé API (OBLIGATOIRE pour toutes les requêtes)
+  // Clé API (OBLIGATOIRE)
   API_KEY: API_KEY,
   
   // Timeout (30 secondes)
   TIMEOUT: 30000,
   
-  // Nombre de tentatives en cas d'échec
+  // Nombre de tentatives
   RETRY_ATTEMPTS: 3,
   
   // Headers par défaut
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'X-API-Key': API_KEY, // Clé API dans le header
+    'X-API-Key': API_KEY,
   },
   
-  // Endpoints par module
+  // ========================================
+  // ENDPOINTS
+  // ========================================
   ENDPOINTS: {
-    // ========================================
-    // AUTHENTIFICATION
-    // ========================================
     AUTH: {
-      // Route publique SANS préfixe (URL complète avec HTTPS en dur)
-      CREATE_ADMIN_PUBLIC: 'https://digitontine-backend.onrender.com/create-admin-public',
-      
-      // Autres routes AVEC préfixe
-      LOGIN_STEP1: '/auth/login', // Étape 1 : Envoi OTP
-      LOGIN_STEP2: '/auth/verify-login-otp', // Étape 2 : Vérification OTP
+      CREATE_ADMIN_PUBLIC: `${API_BASE_URL}/create-admin-public`,
+      LOGIN_STEP1: '/auth/login',
+      LOGIN_STEP2: '/auth/verify-login-otp',
       FORGOT_PASSWORD: '/auth/forgot-password',
       RESET_PASSWORD: '/auth/reset-password',
       CONFIRM_PASSWORD_CHANGE: '/auth/confirm-password-change',
@@ -54,9 +52,6 @@ const API_CONFIG = {
       FCM_TOKEN: '/auth/fcm-token',
     },
     
-    // ========================================
-    // UTILISATEURS
-    // ========================================
     USERS: {
       LIST: '/users',
       CREATE_MEMBRE: '/users/membre',
@@ -72,9 +67,6 @@ const API_CONFIG = {
       DELETE_PROFILE_PHOTO: '/users/me/photo-profil',
     },
     
-    // ========================================
-    // TONTINES
-    // ========================================
     TONTINES: {
       LIST: '/tontines',
       CREATE: '/tontines',
@@ -90,9 +82,6 @@ const API_CONFIG = {
       OPT_IN_TIRAGE: (tontineId) => `/tontines/${tontineId}/opt-in`,
     },
     
-    // ========================================
-    // TRANSACTIONS
-    // ========================================
     TRANSACTIONS: {
       LIST: '/transactions',
       CREATE: '/transactions',
@@ -103,9 +92,6 @@ const API_CONFIG = {
       WEBHOOK_WAVE: '/transactions/webhook/wave',
     },
     
-    // ========================================
-    // TIRAGES
-    // ========================================
     TIRAGES: {
       LIST_BY_TONTINE: (tontineId) => `/tirages/tontine/${tontineId}`,
       NOTIFY_MEMBERS: (tontineId) => `/tirages/tontine/${tontineId}/notify`,
@@ -116,9 +102,6 @@ const API_CONFIG = {
       MES_GAINS: '/tirages/me/gains',
     },
     
-    // ========================================
-    // DASHBOARD
-    // ========================================
     DASHBOARD: {
       ADMIN: '/dashboard/admin',
       TRESORIER: '/dashboard/tresorier',
@@ -126,9 +109,6 @@ const API_CONFIG = {
       STATISTIQUES: '/dashboard/statistiques',
     },
     
-    // ========================================
-    // VALIDATION (Double validation Admin/Trésorier)
-    // ========================================
     VALIDATION: {
       CREATE_REQUEST: '/validations/request',
       CONFIRM_TRESORIER: (requestId) => `/validations/confirm/tresorier/${requestId}`,
@@ -140,7 +120,6 @@ const API_CONFIG = {
     },
   },
   
-  // Codes d'erreur personnalisés
   ERROR_CODES: {
     NETWORK_ERROR: 'NETWORK_ERROR',
     TIMEOUT: 'TIMEOUT',
@@ -152,7 +131,6 @@ const API_CONFIG = {
     UNKNOWN_ERROR: 'UNKNOWN_ERROR',
   },
   
-  // Messages d'erreur
   ERROR_MESSAGES: {
     NETWORK_ERROR: 'Erreur de connexion. Vérifiez votre internet.',
     TIMEOUT: 'La requête a pris trop de temps. Réessayez.',
@@ -164,5 +142,11 @@ const API_CONFIG = {
     UNKNOWN_ERROR: 'Une erreur est survenue.',
   },
 };
+
+console.log('🔧 API Config chargée:', {
+  baseUrl: API_CONFIG.BASE_URL,
+  fullUrl: API_CONFIG.FULL_URL,
+  hasApiKey: !!API_CONFIG.API_KEY,
+});
 
 export default API_CONFIG;

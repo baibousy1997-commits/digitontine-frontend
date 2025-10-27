@@ -17,7 +17,7 @@ import authService from '../../services/auth/authService';
 import Colors from '../../constants/colors';
 
 export default function ForgotPasswordScreen({ navigation }) {
-  const [step, setStep] = useState(1); // 1: email, 2: code + nouveau mot de passe
+  const [step, setStep] = useState(1); // 1: email, 2: code + nouveau mot de passe, 3: confirmation
   
   // Étape 1
   const [email, setEmail] = useState('');
@@ -27,6 +27,9 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  
+  // Étape 3
+  const [confirmationToken, setConfirmationToken] = useState('');
   
   const [loading, setLoading] = useState(false);
 
@@ -112,9 +115,64 @@ export default function ForgotPasswordScreen({ navigation }) {
       const result = await authService.resetPassword(email, code, newPassword);
 
       if (result.success) {
+        // Récupérer le token de confirmation depuis la réponse
+        const token = result.data?.data?.confirmationToken;
+        
+        if (token) {
+          setConfirmationToken(token);
+          setStep(3);
+          
+          Alert.alert(
+            'Vérification requise',
+            'Un email de confirmation vous a été envoyé. Cliquez sur le lien dans l\'email pour confirmer le changement.',
+            [{ text: 'OK' }]
+          );
+        } else {
+          // Si pas de token, afficher le message standard
+          Alert.alert(
+            'Succès',
+            result.data?.message || 'Vérifiez votre email pour confirmer le changement.',
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.navigate('Login'),
+              },
+            ]
+          );
+        }
+      } else {
+        Alert.alert(
+          'Erreur',
+          result.error?.message || 'Code invalide ou expiré.'
+        );
+      }
+    } catch (error) {
+      console.error('Erreur reset password:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue. Réessayez.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * ÉTAPE 3 : Confirmer le changement (optionnel - si token disponible)
+   * Normalement l'utilisateur clique sur le lien dans l'email
+   */
+  const handleConfirmPassword = async () => {
+    if (!confirmationToken.trim()) {
+      Alert.alert('Erreur', 'Token de confirmation manquant.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await authService.confirmPasswordChange(confirmationToken, 'approve');
+
+      if (result.success) {
         Alert.alert(
           'Succès',
-          'Un email de confirmation vous a été envoyé. Confirmez le changement pour vous connecter.',
+          'Votre mot de passe a été changé avec succès. Vous pouvez maintenant vous connecter.',
           [
             {
               text: 'OK',
@@ -125,11 +183,11 @@ export default function ForgotPasswordScreen({ navigation }) {
       } else {
         Alert.alert(
           'Erreur',
-          result.error?.message || 'Code invalide ou expiré.'
+          result.error?.message || 'Erreur lors de la confirmation.'
         );
       }
     } catch (error) {
-      console.error('Erreur reset password:', error);
+      console.error('Erreur confirmation:', error);
       Alert.alert('Erreur', 'Une erreur est survenue. Réessayez.');
     } finally {
       setLoading(false);
@@ -283,6 +341,51 @@ export default function ForgotPasswordScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* ÉTAPE 3 : Confirmation (si token disponible) */}
+        {step === 3 && (
+          <View style={styles.formContainer}>
+            <View style={styles.successContainer}>
+              <Ionicons name="checkmark-circle" size={60} color={Colors.accentYellow} />
+              <Text style={styles.successTitle}>Vérification requise</Text>
+              <Text style={styles.successMessage}>
+                Un email de confirmation a été envoyé à {email}.
+              </Text>
+              <Text style={styles.successMessage}>
+                Cliquez sur le lien dans l'email pour confirmer le changement de mot de passe.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleConfirmPassword}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={Colors.textDark} />
+              ) : (
+                <>
+                  <Ionicons
+                    name="checkmark-done-outline"
+                    size={20}
+                    color={Colors.textDark}
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.buttonText}>Confirmer</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.resendButton}
+              onPress={() => navigation.navigate('Login')}
+            >
+              <Text style={styles.resendButtonText}>
+                Retour à la connexion
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -375,6 +478,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textDark,
     marginBottom: 4,
+  },
+  successContainer: {
+    alignItems: 'center',
+    marginVertical: 40,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: Colors.textDark,
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  successMessage: {
+    fontSize: 15,
+    color: Colors.textDark,
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 20,
   },
   button: {
     flexDirection: 'row',

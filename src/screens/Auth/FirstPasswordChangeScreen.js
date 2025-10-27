@@ -1,10 +1,5 @@
 // src/screens/Auth/FirstPasswordChangeScreen.js
-/**
- * Écran de changement de mot de passe OBLIGATOIRE
- * Après première connexion avec mot de passe temporaire
- */
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,7 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import PropTypes from 'prop-types';
+import { useAuthContext } from '../../context/AuthContext';
 import authService from '../../services/auth/authService';
 import Colors from '../../constants/colors';
 
@@ -28,14 +25,35 @@ const FirstPasswordChangeScreen = ({ navigation }) => {
   const [showPasswords, setShowPasswords] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const { logout, markPasswordChangeComplete, checkAuth } = useAuthContext();
+
+  // Recuperer le mot de passe temporaire stocke lors du login
+  useEffect(() => {
+    const loadTemporaryPassword = async () => {
+      try {
+        const tempPassword = await AsyncStorage.getItem('temp_current_password');
+        if (tempPassword) {
+          setOldPassword(tempPassword);
+          console.log('Mot de passe temporaire recupere et pre-rempli');
+        } else {
+          console.warn('Aucun mot de passe temporaire trouve dans AsyncStorage');
+        }
+      } catch (error) {
+        console.error('Erreur lors de la recuperation du mot de passe temporaire:', error);
+      }
+    };
+
+    loadTemporaryPassword();
+  }, []);
+
   const validatePassword = () => {
     if (!oldPassword.trim()) {
-      Alert.alert('Erreur', 'Veuillez saisir votre mot de passe actuel.');
+      Alert.alert('Erreur', 'Le mot de passe actuel est manquant. Veuillez vous reconnecter.');
       return false;
     }
 
     if (!newPassword.trim() || newPassword.length < 8) {
-      Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 8 caractères.');
+      Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 8 caracteres.');
       return false;
     }
 
@@ -45,16 +63,15 @@ const FirstPasswordChangeScreen = ({ navigation }) => {
     }
 
     if (oldPassword === newPassword) {
-      Alert.alert('Erreur', 'Le nouveau mot de passe doit être différent de l\'ancien.');
+      Alert.alert('Erreur', 'Le nouveau mot de passe doit etre different de l\'ancien.');
       return false;
     }
 
-    // Validation force du mot de passe
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(newPassword)) {
       Alert.alert(
         'Mot de passe faible',
-        'Le mot de passe doit contenir :\n• Au moins 8 caractères\n• 1 majuscule\n• 1 minuscule\n• 1 chiffre\n• 1 caractère spécial (@$!%*?&)'
+        'Le mot de passe doit contenir :\n- Au moins 8 caracteres\n- 1 majuscule\n- 1 minuscule\n- 1 chiffre\n- 1 caractere special (@$!%*?&)'
       );
       return false;
     }
@@ -62,44 +79,50 @@ const FirstPasswordChangeScreen = ({ navigation }) => {
     return true;
   };
 
-  const handleChangePassword = async () => {
-    if (!validatePassword()) return;
+ const handleChangePassword = async () => {
+  if (!validatePassword()) return;
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      const result = await authService.firstPasswordChange(oldPassword, newPassword);
+  try {
+    console.log('=== DEBUT CHANGEMENT MOT DE PASSE ===');
+    const result = await authService.firstPasswordChange(oldPassword, newPassword);
+    console.log('Result firstPasswordChange:', result);
 
-      if (result.success) {
-        Alert.alert(
-          'Email de confirmation envoyé',
-          'Un email vous a été envoyé. Veuillez confirmer le changement de mot de passe pour accéder à l\'application.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Déconnecter et rediriger vers login
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                });
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          'Erreur',
-          result.error?.message || 'Impossible de changer le mot de passe.'
-        );
-      }
-    } catch (error) {
-      console.error('Erreur first password change:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue. Réessayez.');
-    } finally {
+    if (result.success) {
+      // Supprimer le mot de passe temporaire
+      await AsyncStorage.removeItem('temp_current_password');
+      console.log('Mot de passe temporaire supprime');
+      
       setLoading(false);
+      
+      Alert.alert(
+        'Succes',
+        'Votre mot de passe a ete change avec succes. Vous allez etre deconnecte.Verifier votre email pour confirmer Reconnectez-vous avec votre nouveau mot de passe.',
+        [
+          {
+            text: 'OK',
+            onPress: async () => {
+              console.log('Deconnexion apres changement de mot de passe');
+              await logout(false); // false = pas de message de deconnexion
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    } else {
+      setLoading(false);
+      Alert.alert(
+        'Erreur',
+        result.error?.message || 'Impossible de changer le mot de passe.'
+      );
     }
-  };
+  } catch (error) {
+    console.error('Erreur first password change:', error);
+    setLoading(false);
+    Alert.alert('Erreur', 'Une erreur est survenue. Reessayez.');
+  }
+};
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -108,29 +131,29 @@ const FirstPasswordChangeScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header avec icône attention */}
         <View style={styles.header}>
           <View style={styles.iconContainer}>
             <Ionicons name="warning-outline" size={60} color={Colors.accentYellow} />
           </View>
           <Text style={styles.title}>Changement obligatoire</Text>
           <Text style={styles.subtitle}>
-            Pour des raisons de sécurité, vous devez changer votre mot de passe temporaire.
+            Pour des raisons de securite, vous devez changer votre mot de passe temporaire.
           </Text>
         </View>
 
-        {/* Formulaire */}
         <View style={styles.formContainer}>
-          {/* Ancien mot de passe */}
-          <Text style={styles.inputLabel}>Mot de passe actuel</Text>
+          {/* Pas d'affichage du mot de passe actuel puisqu'il est automatiquement recupere */}
+          
+          <Text style={styles.inputLabel}>Nouveau mot de passe</Text>
           <View style={styles.passwordContainer}>
             <TextInput
               style={styles.passwordInput}
-              placeholder="Mot de passe temporaire"
+              placeholder="Minimum 8 caracteres"
               placeholderTextColor={Colors.placeholder}
               secureTextEntry={!showPasswords}
-              value={oldPassword}
-              onChangeText={setOldPassword}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              autoFocus={true}
             />
             <TouchableOpacity
               onPress={() => setShowPasswords(!showPasswords)}
@@ -144,18 +167,6 @@ const FirstPasswordChangeScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Nouveau mot de passe */}
-          <Text style={styles.inputLabel}>Nouveau mot de passe</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Minimum 8 caractères"
-            placeholderTextColor={Colors.placeholder}
-            secureTextEntry={!showPasswords}
-            value={newPassword}
-            onChangeText={setNewPassword}
-          />
-
-          {/* Confirmation */}
           <Text style={styles.inputLabel}>Confirmer le mot de passe</Text>
           <TextInput
             style={styles.input}
@@ -166,26 +177,25 @@ const FirstPasswordChangeScreen = ({ navigation }) => {
             onChangeText={setConfirmPassword}
           />
 
-          {/* Exigences */}
           <View style={styles.passwordRequirements}>
             <Text style={styles.requirementTitle}>Exigences du mot de passe :</Text>
-            <Text style={styles.requirement}>• Au moins 8 caractères</Text>
-            <Text style={styles.requirement}>• 1 lettre majuscule</Text>
-            <Text style={styles.requirement}>• 1 lettre minuscule</Text>
-            <Text style={styles.requirement}>• 1 chiffre</Text>
-            <Text style={styles.requirement}>• 1 caractère spécial (@$!%*?&)</Text>
+            <Text style={styles.requirement}>- Au moins 8 caracteres</Text>
+            <Text style={styles.requirement}>- 1 lettre majuscule</Text>
+            <Text style={styles.requirement}>- 1 lettre minuscule</Text>
+            <Text style={styles.requirement}>- 1 chiffre</Text>
+            <Text style={styles.requirement}>- 1 caractere special (@$!%*?&)</Text>
           </View>
 
-          {/* Info importante */}
-          <View style={styles.infoBox}>
-            <Ionicons name="information-circle-outline" size={20} color={Colors.primaryDark} />
-            <Text style={styles.infoText}>
-              Après validation, un email de confirmation vous sera envoyé. Vous devrez confirmer
-              le changement pour vous connecter.
-            </Text>
+          <View style={styles.warningBox}>
+            <Ionicons name="alert-circle-outline" size={24} color="#d32f2f" />
+            <View style={styles.warningTextContainer}>
+              <Text style={styles.warningTitle}>Important</Text>
+              <Text style={styles.warningText}>
+                Apres validation, vous serez automatiquement redirige vers votre espace avec votre nouveau mot de passe.
+              </Text>
+            </View>
           </View>
 
-          {/* Bouton de validation */}
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleChangePassword}
@@ -213,8 +223,8 @@ const FirstPasswordChangeScreen = ({ navigation }) => {
 
 FirstPasswordChangeScreen.propTypes = {
   navigation: PropTypes.shape({
-    reset: PropTypes.func.isRequired,
-  }).isRequired,
+    reset: PropTypes.func,
+  }),
 };
 
 const styles = StyleSheet.create({
@@ -274,7 +284,7 @@ const styles = StyleSheet.create({
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.inputBackground,
+    backgroundColor: '#f5f5f5',
     borderRadius: 10,
     marginBottom: 20,
   },
@@ -283,6 +293,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 15,
     fontSize: 16,
+    color: Colors.textDark,
   },
   eyeIcon: {
     padding: 10,
@@ -304,19 +315,28 @@ const styles = StyleSheet.create({
     color: Colors.textDark,
     marginBottom: 4,
   },
-  infoBox: {
+  warningBox: {
     flexDirection: 'row',
     backgroundColor: '#fff4e6',
     borderRadius: 10,
     padding: 15,
     marginBottom: 20,
-    alignItems: 'flex-start',
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.accentYellow,
   },
-  infoText: {
+  warningTextContainer: {
     flex: 1,
-    fontSize: 14,
-    color: Colors.textDark,
     marginLeft: 10,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.textDark,
+    marginBottom: 8,
+  },
+  warningText: {
+    fontSize: 13,
+    color: Colors.textDark,
     lineHeight: 20,
   },
   button: {
