@@ -182,21 +182,7 @@ const AccountScreen = ({ navigation }) => {
           <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
         </TouchableOpacity>
 
-        {/* Deconnexion */}
-        <TouchableOpacity 
-          style={[AccountStyles.menuItem, AccountStyles.logoutItem, { backgroundColor: theme.surface }]}
-          onPress={handleLogout}
-          disabled={loggingOut}
-        >
-          <View style={[AccountStyles.menuIconContainer, { backgroundColor: '#FFEBEE' }]}>
-            <Ionicons name="log-out-outline" size={24} color="#d32f2f" />
-          </View>
-          {loggingOut ? (
-            <ActivityIndicator color="#d32f2f" style={{ marginLeft: 15 }} />
-          ) : (
-            <Text style={[AccountStyles.menuText, { color: '#d32f2f' }]}>Deconnexion</Text>
-          )}
-        </TouchableOpacity>
+       
       </View>
     </SafeAreaView>
   );
