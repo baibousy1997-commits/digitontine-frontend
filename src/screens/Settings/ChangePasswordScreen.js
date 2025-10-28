@@ -269,19 +269,7 @@ const ChangePasswordScreen = ({ navigation }) => {
               </View>
             </View>
 
-            <View style={{ backgroundColor: '#fff4e6', borderRadius: 10, padding: 15, marginBottom: 20, borderLeftWidth: 4, borderLeftColor: Colors.accentYellow }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.textDark, marginBottom: 8 }}>
-                Processus de confirmation
-              </Text>
-              <Text style={{ fontSize: 13, color: Colors.textDark, lineHeight: 20 }}>
-                1. Vous serez deconnecte immediatement{'\n'}
-                2. Un email de confirmation vous sera envoye{'\n'}
-                3. Cliquez sur le lien dans l'email pour confirmer{'\n'}
-                4. Reconnectez-vous avec le NOUVEAU mot de passe{'\n\n'}
-                Le mot de passe ne changera QUE si vous confirmez via l'email.
-              </Text>
-            </View>
-
+           
             <TouchableOpacity
               style={[ChangePasswordStyles.button, loading && { opacity: 0.6 }]}
               onPress={handleChangePassword}

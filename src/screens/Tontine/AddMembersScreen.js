@@ -17,7 +17,7 @@ import userService from '../../services/user/userService';
 import tontineService from '../../services/tontine/tontineService';
 
 const AddMembersScreen = ({ navigation, route }) => {
-  const { tontineId, tontineName, requiredMembers } = route.params;
+  const { tontineId, tontineName, minMembers, maxMembers } = route.params;
 
   const [searchText, setSearchText] = useState('');
   const [membres, setMembres] = useState([]);
@@ -31,21 +31,45 @@ const AddMembersScreen = ({ navigation, route }) => {
 
   const loadMembres = async () => {
     try {
+      console.log(' Début chargement des membres...');
+      
       const result = await userService.listUsers({ 
         role: 'Membre', 
         isActive: true,
         limit: 100 
       });
 
-      if (result.success && result.data?.data?.users) {
-        setMembres(result.data.data.users);
+      console.log(' Résultat complet:', JSON.stringify(result, null, 2));
+      console.log(' Success:', result.success);
+      console.log(' Structure data:', result.data);
+
+      //  CORRECTION : Les membres sont dans result.data.data (pas result.data.data.users)
+      if (result.success && result.data?.data) {
+        const membresList = Array.isArray(result.data.data) ? result.data.data : [];
+        console.log(' Nombre de membres:', membresList.length);
+        console.log(' Liste des membres:', membresList);
+        setMembres(membresList);
+        
+        if (membresList.length === 0) {
+          Alert.alert(
+            'Aucun membre',
+            'Aucun membre disponible. Créez d\'abord des comptes membres.',
+            [{ text: 'OK' }]
+          );
+        }
       } else {
-        Alert.alert('Erreur', 'Impossible de charger les membres');
+        console.log(' Pas de membres trouvés');
+        console.log('Structure reçue:', result);
+        setMembres([]);
+        Alert.alert('Info', 'Aucun membre disponible');
       }
     } catch (error) {
-      console.error('Erreur chargement membres:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
+      console.error(' Erreur chargement membres:', error);
+      console.error('Stack:', error.stack);
+      Alert.alert('Erreur', 'Une erreur est survenue lors du chargement');
+      setMembres([]);
     } finally {
+      console.log(' Fin chargement - loading = false');
       setLoading(false);
     }
   };
@@ -55,10 +79,10 @@ const AddMembersScreen = ({ navigation, route }) => {
       if (prev.includes(memberId)) {
         return prev.filter(id => id !== memberId);
       } else {
-        if (prev.length >= requiredMembers) {
+        if (prev.length >= maxMembers) {
           Alert.alert(
             'Limite atteinte', 
-            `Vous ne pouvez ajouter que ${requiredMembers} membres maximum`
+            `Vous ne pouvez ajouter que ${maxMembers} membres maximum`
           );
           return prev;
         }
@@ -68,10 +92,10 @@ const AddMembersScreen = ({ navigation, route }) => {
   };
 
   const handleAddMembers = async () => {
-    if (selectedMembers.length < requiredMembers) {
+    if (selectedMembers.length < minMembers) {
       Alert.alert(
         'Membres insuffisants',
-        `Vous devez ajouter ${requiredMembers} membres. Actuellement: ${selectedMembers.length}`
+        `Vous devez ajouter au moins ${minMembers} membres. Actuellement: ${selectedMembers.length}`
       );
       return;
     }
@@ -79,12 +103,14 @@ const AddMembersScreen = ({ navigation, route }) => {
     setSubmitting(true);
 
     try {
+      console.log(' Ajout des membres:', selectedMembers);
       const result = await tontineService.addMembers(tontineId, selectedMembers);
+      console.log(' Résultat ajout:', result);
 
       if (result.success) {
         Alert.alert(
-          'Succes',
-          `${selectedMembers.length} membre(s) ajoute(s) a la tontine`,
+          'Succès',
+          `${selectedMembers.length} membre(s) ajouté(s) à la tontine`,
           [
             {
               text: 'OK',
@@ -93,11 +119,13 @@ const AddMembersScreen = ({ navigation, route }) => {
           ]
         );
       } else {
-        Alert.alert('Erreur', result.error?.message || 'Impossible d\'ajouter les membres');
+        const errorMsg = result.error?.message || 'Impossible d\'ajouter les membres';
+        console.error(' Erreur ajout:', result.error);
+        Alert.alert('Erreur', errorMsg);
       }
     } catch (error) {
-      console.error('Erreur ajout membres:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
+      console.error(' Exception ajout membres:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue lors de l\'ajout');
     } finally {
       setSubmitting(false);
     }
@@ -155,11 +183,11 @@ const AddMembersScreen = ({ navigation, route }) => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Ajouter des membres</Text>
         <Text style={styles.subtitle}>
-          Invitez {requiredMembers} membres a rejoindre "{tontineName}"
+          Invitez entre {minMembers} et {maxMembers} membres à rejoindre "{tontineName}"
         </Text>
 
         <Text style={styles.selectionInfo}>
-          {selectedMembers.length} / {requiredMembers} membres selectionnes
+          {selectedMembers.length} / {minMembers}-{maxMembers} membres sélectionnés
         </Text>
 
         <View style={styles.searchContainer}>
@@ -184,8 +212,13 @@ const AddMembersScreen = ({ navigation, route }) => {
           <View style={styles.emptyStateContainer}>
             <Ionicons name="people-outline" size={80} color="#ccc" />
             <Text style={styles.emptyStateText}>
-              {searchText ? 'Aucun membre trouve' : 'Aucun membre disponible'}
+              {searchText ? 'Aucun membre trouvé' : 'Aucun membre disponible'}
             </Text>
+            {!searchText && membres.length === 0 && (
+              <Text style={[styles.emptyStateText, { fontSize: 14, marginTop: 10 }]}>
+                Créez d'abord des comptes membres
+              </Text>
+            )}
           </View>
         ) : (
           <FlatList
@@ -201,16 +234,16 @@ const AddMembersScreen = ({ navigation, route }) => {
         <TouchableOpacity 
           style={[
             styles.continueButton,
-            (selectedMembers.length < requiredMembers || submitting) && styles.continueButtonDisabled
+            (selectedMembers.length < minMembers || submitting) && styles.continueButtonDisabled
           ]}
           onPress={handleAddMembers}
-          disabled={selectedMembers.length < requiredMembers || submitting}
+          disabled={selectedMembers.length < minMembers || submitting}
         >
           {submitting ? (
             <ActivityIndicator color="#000" />
           ) : (
             <Text style={styles.continueButtonText}>
-              Ajouter les membres ({selectedMembers.length}/{requiredMembers})
+              Ajouter les membres ({selectedMembers.length}/{minMembers}-{maxMembers})
             </Text>
           )}
         </TouchableOpacity>
@@ -228,7 +261,8 @@ AddMembersScreen.propTypes = {
     params: PropTypes.shape({
       tontineId: PropTypes.string.isRequired,
       tontineName: PropTypes.string.isRequired,
-      requiredMembers: PropTypes.number.isRequired,
+      minMembers: PropTypes.number.isRequired,
+      maxMembers: PropTypes.number.isRequired,
     }).isRequired,
   }).isRequired,
 };

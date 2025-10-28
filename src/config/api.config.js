@@ -1,44 +1,58 @@
 // src/config/api.config.js
 /**
  * Configuration centralisée de l'API DigiTontine
- * ✅ Valeurs en dur temporaires (à remplacer par .env + app.json après)
+ * ✅ UTILISE LES VARIABLES D'ENVIRONNEMENT (.env)
  */
 
 // ========================================
-// CONFIGURATION API
+// CHARGEMENT DES VARIABLES D'ENVIRONNEMENT
 // ========================================
-const API_BASE_URL = 'https://digitontine-backend.onrender.com';
-const API_KEY = 'digitontine_2025_secret_key_change_this_in_production';
-const API_PREFIX = '/digitontine';
+import Constants from 'expo-constants';
 
+// Récupérer les variables depuis app.json ou .env
+const ENV = Constants.expoConfig?.extra || {};
+
+// Valeurs par défaut (fallback si .env non configuré)
+const API_BASE_URL = ENV.API_BASE_URL || 'https://digitontine-backend.onrender.com';
+const API_KEY = ENV.API_KEY || 'digitontine_2025_secret_key_change_this_in_production';
+const API_PREFIX = ENV.API_PREFIX || '/digitontine';
+const API_TIMEOUT = parseInt(ENV.API_TIMEOUT || '30000', 10);
+
+// ========================================
+// CONFIGURATION COMPLÈTE
+// ========================================
 const API_CONFIG = {
   // URLs de base
   BASE_URL: API_BASE_URL,
   API_PREFIX: API_PREFIX,
   FULL_URL: `${API_BASE_URL}${API_PREFIX}`,
   
-  // Clé API (OBLIGATOIRE)
+  // Clé API (OBLIGATOIRE pour toutes les requêtes)
   API_KEY: API_KEY,
   
   // Timeout (30 secondes)
-  TIMEOUT: 30000,
+  TIMEOUT: API_TIMEOUT,
   
-  // Nombre de tentatives
+  // Nombre de tentatives en cas d'échec
   RETRY_ATTEMPTS: 3,
   
   // Headers par défaut
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'X-API-Key': API_KEY,
+    'X-API-Key': API_KEY, // ✅ Clé API dans le header
   },
   
-  // ========================================
-  // ENDPOINTS
-  // ========================================
+  // Endpoints par module
   ENDPOINTS: {
+    // ========================================
+    // AUTHENTIFICATION
+    // ========================================
     AUTH: {
+      // Route publique SANS préfixe
       CREATE_ADMIN_PUBLIC: `${API_BASE_URL}/create-admin-public`,
+      
+      // Autres routes AVEC préfixe
       LOGIN_STEP1: '/auth/login',
       LOGIN_STEP2: '/auth/verify-login-otp',
       FORGOT_PASSWORD: '/auth/forgot-password',
@@ -52,6 +66,9 @@ const API_CONFIG = {
       FCM_TOKEN: '/auth/fcm-token',
     },
     
+    // ========================================
+    // UTILISATEURS
+    // ========================================
     USERS: {
       LIST: '/users',
       CREATE_MEMBRE: '/users/membre',
@@ -67,10 +84,15 @@ const API_CONFIG = {
       DELETE_PROFILE_PHOTO: '/users/me/photo-profil',
     },
     
+    // ========================================
+    // TONTINES
+    // ========================================
     TONTINES: {
       LIST: '/tontines',
       CREATE: '/tontines',
       DETAILS: (tontineId) => `/tontines/${tontineId}`,
+      DETAILS_FOR_MEMBER: (tontineId) => `/tontines/${tontineId}/details`, 
+      MY_TONTINES: '/tontines/me/tontines',
       UPDATE: (tontineId) => `/tontines/${tontineId}`,
       DELETE: (tontineId) => `/tontines/${tontineId}`,
       ADD_MEMBERS: (tontineId) => `/tontines/${tontineId}/membres`,
@@ -82,6 +104,9 @@ const API_CONFIG = {
       OPT_IN_TIRAGE: (tontineId) => `/tontines/${tontineId}/opt-in`,
     },
     
+    // ========================================
+    // TRANSACTIONS
+    // ========================================
     TRANSACTIONS: {
       LIST: '/transactions',
       CREATE: '/transactions',
@@ -92,6 +117,9 @@ const API_CONFIG = {
       WEBHOOK_WAVE: '/transactions/webhook/wave',
     },
     
+    // ========================================
+    // TIRAGES
+    // ========================================
     TIRAGES: {
       LIST_BY_TONTINE: (tontineId) => `/tirages/tontine/${tontineId}`,
       NOTIFY_MEMBERS: (tontineId) => `/tirages/tontine/${tontineId}/notify`,
@@ -102,6 +130,9 @@ const API_CONFIG = {
       MES_GAINS: '/tirages/me/gains',
     },
     
+    // ========================================
+    // DASHBOARD
+    // ========================================
     DASHBOARD: {
       ADMIN: '/dashboard/admin',
       TRESORIER: '/dashboard/tresorier',
@@ -109,6 +140,9 @@ const API_CONFIG = {
       STATISTIQUES: '/dashboard/statistiques',
     },
     
+    // ========================================
+    // VALIDATION
+    // ========================================
     VALIDATION: {
       CREATE_REQUEST: '/validations/request',
       CONFIRM_TRESORIER: (requestId) => `/validations/confirm/tresorier/${requestId}`,
@@ -120,6 +154,7 @@ const API_CONFIG = {
     },
   },
   
+  // Codes d'erreur personnalisés
   ERROR_CODES: {
     NETWORK_ERROR: 'NETWORK_ERROR',
     TIMEOUT: 'TIMEOUT',
@@ -131,6 +166,7 @@ const API_CONFIG = {
     UNKNOWN_ERROR: 'UNKNOWN_ERROR',
   },
   
+  // Messages d'erreur
   ERROR_MESSAGES: {
     NETWORK_ERROR: 'Erreur de connexion. Vérifiez votre internet.',
     TIMEOUT: 'La requête a pris trop de temps. Réessayez.',
@@ -143,10 +179,14 @@ const API_CONFIG = {
   },
 };
 
-console.log('🔧 API Config chargée:', {
-  baseUrl: API_CONFIG.BASE_URL,
-  fullUrl: API_CONFIG.FULL_URL,
-  hasApiKey: !!API_CONFIG.API_KEY,
-});
+// ========================================
+// LOG DE DEBUG (à supprimer en production)
+// ========================================
+if (__DEV__) {
+  console.log('🔧 API CONFIG LOADED:');
+  console.log('  - BASE_URL:', API_CONFIG.BASE_URL);
+  console.log('  - FULL_URL:', API_CONFIG.FULL_URL);
+  console.log('  - API_KEY:', API_KEY ? ' Configurée' : ' Manquante');
+}
 
 export default API_CONFIG;

@@ -25,8 +25,30 @@ import CreateUsersScreen from '../screens/Users/CreateUsersScreen';
 import ChooseTontineActionScreen from '../screens/Tontine/ChooseTontineActionScreen';
 import CreateTontineScreen from '../screens/Tontine/CreateTontineScreen';
 import AddMembersScreen from '../screens/Tontine/AddMembersScreen';
+import MyTontinesScreen from '../screens/Tontine/MyTontinesScreen';
+import ManageTontinesScreen from '../screens/Tontine/ManageTontinesScreen';
+import TontineDetailsScreen from '../screens/Tontine/TontineDetailsScreen';
+
+// Transaction Screens
+import MyTransactionsScreen from '../screens/Transaction/MyTransactionsScreen';
+import TransactionsValidationScreen from '../screens/Transaction/TransactionsValidationScreen';
+import CreateTransactionScreen from '../screens/Transaction/CreateTransactionScreen';
+import TransactionDetailsScreen from '../screens/Transaction/TransactionDetailsScreen';
 
 const Stack = createStackNavigator();
+
+// ✅ Composants séparés (fix warning)
+const WalletPlaceholder = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <Text>Wallet - A venir</Text>
+  </View>
+);
+
+const NotificationsPlaceholder = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <Text>Notifications - A venir</Text>
+  </View>
+);
 
 const AuthStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -39,63 +61,39 @@ const AuthStack = () => (
 const MainStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
     <Stack.Screen name="Accueil" component={HomeScreen} />
-    
     <Stack.Screen name="DashboardAdmin" component={DashboardAdminScreen} />
     <Stack.Screen name="DashboardTresorier" component={DashboardTresorierScreen} />
     <Stack.Screen name="DashboardMembre" component={DashboardMembreScreen} />
-    
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="Account" component={AccountScreen} />
-    
     <Stack.Screen name="Settings" component={SettingsScreen} />
     <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-    
     <Stack.Screen name="CreateUser" component={CreateUsersScreen} />
-    
     <Stack.Screen name="ChooseTontineAction" component={ChooseTontineActionScreen} />
     <Stack.Screen name="CreateTontine" component={CreateTontineScreen} />
     <Stack.Screen name="AddMembers" component={AddMembersScreen} />
+    <Stack.Screen name="MyTontines" component={MyTontinesScreen} />
+    <Stack.Screen name="ManageTontines" component={ManageTontinesScreen} />
+    <Stack.Screen name="TontineDetails" component={TontineDetailsScreen} />
+    <Stack.Screen name="MyTransactions" component={MyTransactionsScreen} />
+    <Stack.Screen name="TransactionsValidation" component={TransactionsValidationScreen} />
+    <Stack.Screen name="CreateTransaction" component={CreateTransactionScreen} />
+    <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
     
-    <Stack.Screen 
-      name="Wallet" 
-      component={() => (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Wallet - A venir</Text>
-        </View>
-      )}
-    />
-    <Stack.Screen 
-      name="Notifications" 
-      component={() => (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Notifications - A venir</Text>
-        </View>
-      )}
-    />
-    <Stack.Screen 
-      name="MyTontines" 
-      component={() => (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Mes Tontines - A venir</Text>
-        </View>
-      )}
-    />
+    {/* ✅ Fix warnings: utiliser des composants au lieu d'inline functions */}
+    <Stack.Screen name="Wallet" component={WalletPlaceholder} />
+    <Stack.Screen name="Notifications" component={NotificationsPlaceholder} />
   </Stack.Navigator>
 );
 
 const AppNavigator = () => {
   const { isAuthenticated, loading, requiresPasswordChange } = useAuthContext();
 
-  // DEBUG: Logger les changements d'état
   useEffect(() => {
-    console.log('===== AppNavigator State Change =====');
-    console.log('isAuthenticated:', isAuthenticated);
-    console.log('requiresPasswordChange:', requiresPasswordChange);
-    console.log('loading:', loading);
+    console.log('AppNavigator State:', { isAuthenticated, requiresPasswordChange, loading });
   }, [isAuthenticated, requiresPasswordChange, loading]);
 
   if (loading) {
-    console.log('Affichage: Loading');
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#004aad" />
@@ -104,7 +102,6 @@ const AppNavigator = () => {
   }
 
   if (isAuthenticated && requiresPasswordChange) {
-    console.log('Affichage: FirstPasswordChange');
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen 
@@ -116,7 +113,6 @@ const AppNavigator = () => {
     );
   }
 
-  console.log('Affichage:', isAuthenticated ? 'MainStack' : 'AuthStack');
   return isAuthenticated ? <MainStack /> : <AuthStack />;
 };
 

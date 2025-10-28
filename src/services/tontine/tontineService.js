@@ -6,6 +6,7 @@
 
 import { get, post, put, del } from '../api/apiClient';
 import API_CONFIG from '../../config/api.config';
+import tokenManager from '../../utils/tokenManager';
 
 const tontineService = {
   // ========================================
@@ -19,6 +20,33 @@ const tontineService = {
    */
   async createTontine(data) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.CREATE, data);
+  },
+
+  /**
+   * Mes tontines (Membre/Trésorier)
+   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   */
+  async mesTontines() {
+    return await get(API_CONFIG.ENDPOINTS.TONTINES.MY_TONTINES);
+  },
+
+  /**
+   * Obtenir les détails d'une tontine (Admin uniquement)
+   * @param {string} tontineId - ID de la tontine
+   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   */
+  async getTontineDetails(tontineId) {
+    return await get(API_CONFIG.ENDPOINTS.TONTINES.DETAILS(tontineId));
+  },
+
+  /**
+   * ✅ CORRECTION : Obtenir les détails d'une tontine (pour Membre/Trésorier)
+   * @param {string} tontineId - ID de la tontine
+   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   */
+  async getTontineDetailsForMember(tontineId) {
+    // ✅ UTILISER LE BON ENDPOINT depuis api.config.js
+    return await get(API_CONFIG.ENDPOINTS.TONTINES.DETAILS_FOR_MEMBER(tontineId));
   },
 
   /**
@@ -38,12 +66,6 @@ const tontineService = {
   /**
    * Liste des tontines avec filtres et pagination
    * @param {object} params - Paramètres de recherche
-   * @param {number} params.page - Numéro de page
-   * @param {number} params.limit - Nombre d'éléments par page
-   * @param {string} params.statut - Filtrer par statut (En attente, Active, Bloquee, Terminee)
-   * @param {string} params.search - Recherche textuelle
-   * @param {string} params.dateDebut - Date de début (ISO)
-   * @param {string} params.dateFin - Date de fin (ISO)
    * @returns {Promise<{success: boolean, data?: any, error?: any}>}
    */
   async listTontines(params = {}) {
@@ -58,15 +80,6 @@ const tontineService = {
 
     const url = `${API_CONFIG.ENDPOINTS.TONTINES.LIST}?${queryParams.toString()}`;
     return await get(url);
-  },
-
-  /**
-   * Obtenir les détails d'une tontine
-   * @param {string} tontineId - ID de la tontine
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
-  async getTontineDetails(tontineId) {
-    return await get(API_CONFIG.ENDPOINTS.TONTINES.DETAILS(tontineId));
   },
 
   // ========================================

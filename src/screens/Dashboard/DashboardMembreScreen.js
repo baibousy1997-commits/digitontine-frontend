@@ -16,12 +16,16 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import dashboardService from '../../services/dashboard/dashboardService';
 import Colors from '../../constants/colors';
+import tontineService from '../../services/tontine/tontineService';
+import tirageService from '../../services/tirage/tirageService';
 
 const DashboardMembreScreen = ({ navigation }) => {
   const { theme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
+  const [mesTontines, setMesTontines] = useState([]);
+  const [mesGains, setMesGains] = useState([]);
 
   useEffect(() => {
     loadDashboard();
@@ -30,12 +34,47 @@ const DashboardMembreScreen = ({ navigation }) => {
   const loadDashboard = async () => {
     try {
       setLoading(true);
-      const result = await dashboardService.getDashboardMembre();
-      if (result.success) {
-        setDashboardData(result.data?.data);
+      
+      console.log('========== DEBUT CHARGEMENT DASHBOARD MEMBRE ==========');
+      
+      // 1. Charger le dashboard principal
+      console.log('1. Chargement dashboard principal...');
+      const dashResult = await dashboardService.getDashboardMembre();
+      
+      if (dashResult.success) {
+        setDashboardData(dashResult.data?.data);
       }
+      
+      // 2. Charger MES tontines
+      console.log('2. Chargement de mes tontines...');
+      const tontinesResult = await tontineService.mesTontines();
+      
+      if (tontinesResult.success) {
+        const tontinesList = tontinesResult.data?.data?.tontines || [];
+        console.log(' Tontines chargées:', tontinesList.length);
+        setMesTontines(tontinesList);
+      } else {
+        console.log(' Erreur chargement tontines:', tontinesResult.error);
+        setMesTontines([]);
+      }
+      
+      // 3. Charger mes gains
+      console.log('3. Chargement de mes gains...');
+      const gainsResult = await tirageService.mesGains();
+      
+      if (gainsResult.success) {
+        const gainsList = gainsResult.data?.data?.tirages || [];
+        console.log(' Gains chargés:', gainsList.length);
+        setMesGains(gainsList);
+      } else {
+        console.log(' Erreur chargement gains:', gainsResult.error);
+        setMesGains([]);
+      }
+      
+      console.log('========== FIN CHARGEMENT DASHBOARD MEMBRE ==========');
+      
     } catch (error) {
-      console.error('Erreur chargement dashboard membre:', error);
+      console.error(' ERREUR CRITIQUE loadDashboard:', error);
     } finally {
       setLoading(false);
     }
@@ -47,25 +86,44 @@ const DashboardMembreScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
+  //  Fonction pour obtenir l'ID correct (MongoDB ou standard)
+  const getTontineId = (tontine) => {
+    return tontine._id || tontine.id;
+  };
+
+  //  Fonction pour formater le statut avec badge coloré
+  const getStatutBadge = (statut) => {
+    let backgroundColor = Colors.placeholder;
+    if (statut === 'Active') backgroundColor = Colors.accentGreen;
+    if (statut === 'En attente') backgroundColor = Colors.accentYellow;
+    if (statut === 'Bloquee') backgroundColor = Colors.danger;
+    
+    return (
+      <View style={[styles.statutBadge, { backgroundColor }]}>
+        <Text style={styles.statutText}>{statut}</Text>
+      </View>
+    );
+  };
+
   if (loading && !dashboardData) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.primaryDark} />
+        <ActivityIndicator size="large" color={Colors.primaryDark} />
+        <Text style={{ color: theme.text, marginTop: 10 }}>
+          Chargement du dashboard...
+        </Text>
       </View>
     );
   }
 
-  // Valeurs par défaut pour éviter null errors
   const resume = dashboardData?.resume || {};
-  const mesTontines = dashboardData?.tontines || [];  // Corrigé
-  const mesGains = dashboardData?.gains || [];        // Corrigé
   const prochainesEcheances = dashboardData?.prochainesEcheances || [];
 
   const retards = resume?.retards || 0;
   const tontinesActives = resume?.tontinesActives || 0;
   const totalCotise = resume?.totalCotise || 0;
   const totalGagne = resume?.totalGagne || 0;
-  const penalites = resume?.totalPenalites || 0;  // Corrigé
+  const penalites = resume?.totalPenalites || 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -94,14 +152,14 @@ const DashboardMembreScreen = ({ navigation }) => {
                 Vous avez {retards} cotisation(s) en retard
               </Text>
               <Text style={[styles.alertSubtext, { color: '#721c24' }]}>
-                Regularisez rapidement pour eviter les penalites
+                Régularisez rapidement pour éviter les pénalités
               </Text>
             </View>
           </View>
         )}
 
-        {/* Resume financier */}
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Mon resume</Text>
+        {/* Résumé financier */}
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Mon résumé</Text>
         <View style={styles.kpiRow}>
           <View style={[styles.kpiCard, { backgroundColor: theme.surface }]}>
             <MaterialCommunityIcons name="hand-coin" size={32} color={Colors.primaryDark} />
@@ -116,7 +174,7 @@ const DashboardMembreScreen = ({ navigation }) => {
             <Text style={[styles.kpiValue, { color: theme.text }]}>
               {totalCotise?.toLocaleString() || 0}
             </Text>
-            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Total cotise (FCFA)</Text>
+            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Total cotisé (FCFA)</Text>
           </View>
         </View>
 
@@ -126,7 +184,7 @@ const DashboardMembreScreen = ({ navigation }) => {
             <Text style={[styles.kpiValue, { color: theme.text }]}>
               {totalGagne?.toLocaleString() || 0}
             </Text>
-            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Total gagne (FCFA)</Text>
+            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Total gagné (FCFA)</Text>
           </View>
 
           <View style={[styles.kpiCard, { backgroundColor: theme.surface }]}>
@@ -138,11 +196,11 @@ const DashboardMembreScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Penalites */}
+        {/* Pénalités */}
         {penalites > 0 && (
           <View style={[styles.infoCard, { backgroundColor: theme.surface }]}>
             <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Penalites cumulees</Text>
+              <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Pénalités cumulées</Text>
               <Text style={[styles.infoValue, { color: Colors.danger, fontWeight: 'bold' }]}>
                 {penalites?.toLocaleString() || 0} FCFA
               </Text>
@@ -150,40 +208,88 @@ const DashboardMembreScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Mes tontines actives */}
+        {/*  MES TONTINES - VERSION CORRIGÉE */}
         {mesTontines.length > 0 && (
           <>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Mes tontines ({mesTontines.length})
-            </Text>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>
+                Mes tontines ({mesTontines.length})
+              </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('MyTontines')}>
+                <Text style={[styles.seeAllText, { color: Colors.primaryDark }]}>
+                  Voir tout
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
             <FlatList
               data={mesTontines}
               scrollEnabled={false}
-              keyExtractor={(item) => item._id}
+              keyExtractor={(item, index) => getTontineId(item) || index.toString()}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[styles.tontineCard, { backgroundColor: theme.surface }]}
-                  onPress={() => navigation.navigate('TontineDetails', { tontineId: item._id })}
+                  onPress={() => {
+                    const tontineId = getTontineId(item);
+                    console.log('🔍 Navigation vers tontine:', tontineId);
+                    navigation.navigate('TontineDetails', { tontineId });
+                  }}
                 >
-                  <View style={styles.tontineLeft}>
-                    <Text style={[styles.tontineName, { color: theme.text }]}>
-                      {item.nom}
-                    </Text>
-                    <Text style={[styles.tontineInfo, { color: theme.textSecondary }]}>
-                      {item.frequence} - {item.montantCotisation?.toLocaleString()} FCFA
-                    </Text>
-                    <Text style={[styles.tontineDate, { color: theme.textSecondary }]}>
-                      Début: {item.dateDebut ? new Date(item.dateDebut).toLocaleDateString('fr-FR') : 'N/A'}
-                    </Text>
+                  <View style={styles.tontineHeader}>
+                    <View style={styles.tontineLeft}>
+                      <Text style={[styles.tontineName, { color: theme.text }]}>
+                        {item.nom || 'Tontine'}
+                      </Text>
+                      {item.description && (
+                        <Text 
+                          style={[styles.tontineDescription, { color: theme.textSecondary }]}
+                          numberOfLines={1}
+                        >
+                          {item.description}
+                        </Text>
+                      )}
+                    </View>
+                    {getStatutBadge(item.statut)}
                   </View>
-                  <Ionicons name="chevron-forward" size={24} color={theme.placeholder} />
+
+                  <View style={styles.tontineDetails}>
+                    <View style={styles.detailItem}>
+                      <Ionicons name="cash-outline" size={16} color={theme.textSecondary} />
+                      <Text style={[styles.detailText, { color: theme.text }]}>
+                        {item.montantCotisation?.toLocaleString() || 0} FCFA
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailItem}>
+                      <Ionicons name="calendar-outline" size={16} color={theme.textSecondary} />
+                      <Text style={[styles.detailText, { color: theme.text }]}>
+                        {item.frequence || 'N/A'}
+                      </Text>
+                    </View>
+
+                    {item.tresorierAssigne && (
+                      <View style={styles.detailItem}>
+                        <Ionicons name="person-outline" size={16} color={theme.textSecondary} />
+                        <Text style={[styles.detailText, { color: theme.text }]}>
+                          {item.tresorierAssigne.prenom} {item.tresorierAssigne.nom}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.tontineFooter}>
+                    <Text style={[styles.tontineDate, { color: theme.placeholder }]}>
+                      Début: {new Date(item.dateDebut).toLocaleDateString('fr-FR')}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={20} color={theme.placeholder} />
+                  </View>
                 </TouchableOpacity>
               )}
             />
           </>
         )}
 
-        {/* Mes gains */}
+        {/* MES GAINS */}
         {mesGains.length > 0 && (
           <>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
@@ -192,20 +298,20 @@ const DashboardMembreScreen = ({ navigation }) => {
             <FlatList
               data={mesGains}
               scrollEnabled={false}
-              keyExtractor={(item) => item._id}
+              keyExtractor={(item, index) => item._id || index.toString()}
               renderItem={({ item }) => (
                 <View style={[styles.gainCard, { backgroundColor: theme.surface }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.gainTontine, { color: theme.text }]}>
-                      Tontine (ID: {item.tontine})
+                      {item.tontine?.nom || 'Tontine'}
                     </Text>
                     <Text style={[styles.gainDate, { color: theme.textSecondary }]}>
-                      {new Date(item.dateEffective).toLocaleDateString('fr-FR')}
+                      {item.dateEffective ? new Date(item.dateEffective).toLocaleDateString('fr-FR') : 'Date inconnue'}
                     </Text>
                   </View>
                   <View style={styles.gainAmount}>
                     <Text style={[styles.gainValue, { color: Colors.accentGreen }]}>
-                      +{item.montant?.toLocaleString()} FCFA
+                      {item.montant?.toLocaleString() || 0} FCFA
                     </Text>
                   </View>
                 </View>
@@ -214,11 +320,11 @@ const DashboardMembreScreen = ({ navigation }) => {
           </>
         )}
 
-        {/* Prochaines echeances */}
+        {/* Prochaines échéances */}
         {prochainesEcheances.length > 0 && (
           <>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Prochaines echeances
+              Prochaines échéances
             </Text>
             <FlatList
               data={prochainesEcheances}
@@ -234,7 +340,7 @@ const DashboardMembreScreen = ({ navigation }) => {
                       {item.tontine?.nom || 'Tontine'}
                     </Text>
                     <Text style={[styles.echeanceDate, { color: theme.textSecondary }]}>
-                      Echeance: {new Date(item.dateLimite).toLocaleDateString('fr-FR')}
+                      Échéance: {new Date(item.dateLimite).toLocaleDateString('fr-FR')}
                     </Text>
                   </View>
                   <Text style={[styles.echeanceAmount, { color: Colors.danger }]}>
@@ -250,7 +356,16 @@ const DashboardMembreScreen = ({ navigation }) => {
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Actions rapides</Text>
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: Colors.accentGreen }]}
-          onPress={() => navigation.navigate('CreateTransaction')}
+          onPress={() => {
+            if (mesTontines && mesTontines.length > 0) {
+              navigation.navigate('CreateTransaction', {
+                tontineId: getTontineId(mesTontines[0]),
+                tontineName: mesTontines[0].nom
+              });
+            } else {
+              navigation.navigate('CreateTransaction');
+            }
+          }}
         >
           <MaterialCommunityIcons name="cash-plus" size={24} color="#fff" />
           <Text style={styles.actionButtonText}>Faire une cotisation</Text>
@@ -298,7 +413,15 @@ const styles = StyleSheet.create({
   },
   alertText: { fontSize: 14, fontWeight: '600' },
   alertSubtext: { fontSize: 12, marginTop: 4 },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 15,
+  },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginTop: 20, marginBottom: 15 },
+  seeAllText: { fontSize: 14, fontWeight: '600' },
   kpiRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -336,22 +459,51 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 14 },
   infoValue: { fontSize: 14, fontWeight: '600' },
   tontineCard: {
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tontineHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  tontineLeft: { flex: 1, marginRight: 10 },
+  tontineName: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  tontineDescription: { fontSize: 13, marginTop: 2 },
+  statutBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  statutText: { fontSize: 11, color: '#fff', fontWeight: '600' },
+  tontineDetails: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
+    gap: 12,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailText: { fontSize: 13 },
+  tontineFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
-  tontineLeft: { flex: 1 },
-  tontineName: { fontSize: 16, fontWeight: '600' },
-  tontineInfo: { fontSize: 13, marginTop: 4 },
-  tontineDate: { fontSize: 12, marginTop: 2 },
+  tontineDate: { fontSize: 12 },
   gainCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',

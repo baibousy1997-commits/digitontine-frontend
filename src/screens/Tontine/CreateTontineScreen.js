@@ -12,18 +12,18 @@ const CreateTontineScreen = ({ navigation }) => {
   const [tresoriers, setTresoriers] = useState([]);
   const [loadingTresoriers, setLoadingTresoriers] = useState(true);
   
-  const [formData, setFormData] = useState({
-    nom: '',
-    description: '',
-    montantCotisation: '',
-    frequence: 'Mensuelle',
-    dateDebut: '',
-    nombreMembresMin: '3',
-    nombreMembresMax: '50',
-    tauxPenalite: '5',
-    delaiGrace: '2',
-    tresorierAssigneId: '',
-  });
+const [formData, setFormData] = useState({
+  nom: '',
+  description: '',
+  montantCotisation: '',
+  frequence: 'mensuelle', 
+  dateDebut: '',
+  nombreMembresMin: '3',
+  nombreMembresMax: '50',
+  tauxPenalite: '5',
+  delaiGrace: '2',
+  tresorierAssigneId: '',
+});
 
   const [dateDisplay, setDateDisplay] = useState({
     day: '1',
@@ -34,7 +34,8 @@ const CreateTontineScreen = ({ navigation }) => {
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
-  const [showDurationPicker, setShowDurationPicker] = useState(false);
+  const [showMinPicker, setShowMinPicker] = useState(false);
+  const [showMaxPicker, setShowMaxPicker] = useState(false);
   const [showTresorierPicker, setShowTresorierPicker] = useState(false);
 
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -43,7 +44,8 @@ const CreateTontineScreen = ({ navigation }) => {
     'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'
   ];
   const years = Array.from({ length: 10 }, (_, i) => 2025 + i);
-  const durations = Array.from({ length: 22 }, (_, i) => i + 3);
+  const minOptions = Array.from({ length: 19 }, (_, i) => i + 2); // From 2 to 20
+  const maxOptions = Array.from({ length: 49 }, (_, i) => i + 2); // From 2 to 50
 
   useEffect(() => {
     loadTresoriers();
@@ -53,120 +55,253 @@ const CreateTontineScreen = ({ navigation }) => {
     updateDateDebut();
   }, [dateDisplay]);
 
-  const loadTresoriers = async () => {
-    try {
-      const result = await userService.listUsers({ role: 'Tresorier', isActive: true });
-      if (result.success && result.data?.data?.users) {
-        setTresoriers(result.data.data.users);
-      }
-    } catch (error) {
-      console.error('Erreur chargement tresoriers:', error);
-    } finally {
-      setLoadingTresoriers(false);
-    }
-  };
+const loadTresoriers = async () => {
+  try {
+    console.log('Début chargement des trésoriers...');
+    
+    const result = await userService.listUsers({ 
+      role: 'Tresorier',
+      isActive: true,
+      limit: 100 
+    });
+    
+    console.log('Résultat complet:', JSON.stringify(result, null, 2));
+    console.log('Success:', result.success);
+    console.log('Structure data:', result.data);
+    
+    // CORRECTION CLÉ : result.data.data.data contient le tableau
+    if (result.success && result.data?.data?.data) {
+      const tresoriersList = Array.isArray(result.data.data.data) 
+        ? result.data.data.data 
+        : [];
 
+      console.log('Nombre de trésoriers:', tresoriersList.length);
+      console.log('Liste des trésoriers:', tresoriersList);
+      setTresoriers(tresoriersList);
+    } else {
+      console.log('Aucun trésorier trouvé ou structure inattendue');
+      console.log('Données reçues:', result);
+      setTresoriers([]);
+    }
+  } catch (error) {
+    console.error('Erreur chargement trésoriers:', error);
+    console.error('Stack:', error.stack);
+    setTresoriers([]);
+  } finally {
+    console.log('Fin chargement - loadingTresoriers = false');
+    setLoadingTresoriers(false);
+  }
+};
   const updateDateDebut = () => {
     const monthIndex = months.indexOf(dateDisplay.month);
     const dateStr = `${dateDisplay.year}-${String(monthIndex + 1).padStart(2, '0')}-${String(dateDisplay.day).padStart(2, '0')}`;
     setFormData(prev => ({ ...prev, dateDebut: dateStr }));
   };
 
-  const calculateDateFin = (dateDebut, dureeMois) => {
-    const date = new Date(dateDebut);
-    date.setMonth(date.getMonth() + parseInt(dureeMois));
-    return date.toISOString().split('T')[0];
-  };
+const calculateDateFin = (dateDebut, duree) => {
+  const date = new Date(dateDebut);
+  const parsedDuree = parseInt(duree);
+  if (formData.frequence === 'mensuelle') {  //  CORRECT : minuscule
+    date.setMonth(date.getMonth() + parsedDuree);
+  } else {
+    date.setDate(date.getDate() + parsedDuree * 7);
+  }
+  return date.toISOString().split('T')[0];
+};
 
-  const handleChange = (field, value) => {
+const handleChange = (field, value) => {
+  // Convertir la fréquence en minuscules pour l'API
+  if (field === 'frequence') {
+    setFormData(prev => ({ ...prev, [field]: value.toLowerCase() }));
+  } else {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  }
+};
 
-  const validateForm = () => {
-    if (!formData.nom.trim()) {
-      Alert.alert('Erreur', 'Le nom de la tontine est requis');
-      return false;
-    }
+const validateForm = () => {
+  if (!formData.nom.trim()) {
+    Alert.alert('Erreur', 'Le nom de la tontine est requis');
+    return false;
+  }
 
-    if (!formData.montantCotisation || parseInt(formData.montantCotisation) < 5000) {
-      Alert.alert('Erreur', 'Le montant minimum est de 5000 FCFA');
-      return false;
-    }
+  //  CORRECTION : Montant doit être > 0 (pas >= 0)
+  const montant = parseInt(formData.montantCotisation);
+  if (!formData.montantCotisation || isNaN(montant) || montant <= 0) {
+    Alert.alert('Erreur', 'Le montant doit être supérieur à 0');
+    return false;
+  }
 
-    if (!formData.nombreMembresMax || parseInt(formData.nombreMembresMax) < 3) {
-      Alert.alert('Erreur', 'La duree minimum est de 3 mois');
-      return false;
-    }
+  const minMembres = parseInt(formData.nombreMembresMin);
+  const maxMembres = parseInt(formData.nombreMembresMax);
+  
+  if (isNaN(minMembres) || minMembres < 2) {
+    Alert.alert('Erreur', 'Le minimum de membres est de 2');
+    return false;
+  }
+  
+  if (isNaN(maxMembres) || maxMembres < 2) {
+    Alert.alert('Erreur', 'Le maximum de membres doit être au moins 2');
+    return false;
+  }
+  
+  if (minMembres > maxMembres) {
+    Alert.alert('Erreur', 'Le minimum doit être inférieur ou égal au maximum');
+    return false;
+  }
 
-    if (!formData.tresorierAssigneId) {
-      Alert.alert('Erreur', 'Vous devez assigner un tresorier');
-      return false;
-    }
+  if (!formData.tresorierAssigneId) {
+    Alert.alert(
+      'Attention',
+      'Aucun trésorier assigné. La tontine ne pourra pas être activée sans trésorier.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { 
+          text: 'Continuer quand même', 
+          onPress: () => {
+            handleCreateTontineWithoutValidation();
+          }
+        }
+      ]
+    );
+    return false;
+  }
 
-    return true;
-  };
+  return true;
+};
+const handleCreateTontineWithoutValidation = async () => {
+  setLoading(true);
 
-  const handleCreateTontine = async () => {
-    if (!validateForm()) return;
+  try {
+    const duree = parseInt(formData.nombreMembresMax);
+    const dateFin = calculateDateFin(formData.dateDebut, duree);
 
-    setLoading(true);
+    const payload = {
+      nom: formData.nom.trim(),
+      description: formData.description.trim(),
+      montantCotisation: parseInt(formData.montantCotisation),
+      frequence: formData.frequence,
+      dateDebut: formData.dateDebut,
+      dateFin: dateFin,
+      nombreMembresMin: parseInt(formData.nombreMembresMin),
+      nombreMembresMax: parseInt(formData.nombreMembresMax),
+      tauxPenalite: parseFloat(formData.tauxPenalite),
+      delaiGrace: parseInt(formData.delaiGrace),
+      tresorierAssigneId: formData.tresorierAssigneId || null,
+    };
 
-    try {
-      const dureeMois = parseInt(formData.nombreMembresMax);
-      const dateFin = calculateDateFin(formData.dateDebut, dureeMois);
+    console.log('Payload envoyé:', payload);
 
-      const payload = {
-        nom: formData.nom.trim(),
-        description: formData.description.trim(),
-        montantCotisation: parseInt(formData.montantCotisation),
-        frequence: formData.frequence,
-        dateDebut: formData.dateDebut,
-        dateFin: dateFin,
-        nombreMembresMin: parseInt(formData.nombreMembresMin),
-        nombreMembresMax: parseInt(formData.nombreMembresMax),
-        tauxPenalite: parseFloat(formData.tauxPenalite),
-        delaiGrace: parseInt(formData.delaiGrace),
-        tresorierAssigneId: formData.tresorierAssigneId,
-      };
+    const result = await tontineService.createTontine(payload);
 
-      console.log('Creation tontine avec payload:', payload);
-
-      const result = await tontineService.createTontine(payload);
-
-      if (result.success) {
-        const tontineId = result.data?.data?.tontine?.id;
-        
-        Alert.alert(
-          'Succes',
-          'Tontine creee avec succes',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                navigation.navigate('AddMembers', {
-                  tontineId,
-                  tontineName: formData.nom,
-                  requiredMembers: parseInt(formData.nombreMembresMax),
-                });
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert('Erreur', result.error?.message || 'Impossible de creer la tontine');
+    if (result.success) {
+      const tontineData = result.data?.data?.tontine;
+      
+      if (!tontineData || !tontineData.id) {
+        Alert.alert('Erreur', 'Réponse invalide du serveur');
+        return;
       }
-    } catch (error) {
-      console.error('Erreur creation tontine:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const getTresorierNom = (tresorierAssigneId) => {
-    const tresorier = tresoriers.find(t => t.id === tresorierAssigneId);
-    return tresorier ? `${tresorier.prenom} ${tresorier.nom}` : 'Selectionnez un tresorier';
-  };
+      Alert.alert(
+        'Succès',
+        'Tontine créée avec succès',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              navigation.navigate('AddMembers', {
+                tontineId: tontineData.id,
+                tontineName: formData.nom,
+                minMembers: parseInt(formData.nombreMembresMin),
+                maxMembers: parseInt(formData.nombreMembresMax),
+              });
+            },
+          },
+        ]
+      );
+    } else {
+      const errorMsg = result.error?.message || 'Impossible de créer la tontine';
+      console.error('Erreur création:', result.error);
+      Alert.alert('Erreur', errorMsg);
+    }
+  } catch (error) {
+    console.error('Exception création tontine:', error);
+    Alert.alert('Erreur', 'Une erreur est survenue');
+  } finally {
+    setLoading(false);
+  }
+};
+const handleCreateTontine = async () => {
+  if (!validateForm()) return;
+
+  setLoading(true);
+
+  try {
+    const duree = parseInt(formData.nombreMembresMax);
+    const dateFin = calculateDateFin(formData.dateDebut, duree);
+
+    const payload = {
+      nom: formData.nom.trim(),
+      description: formData.description.trim(),
+      montantCotisation: parseInt(formData.montantCotisation),
+      frequence: formData.frequence, //  Déjà en minuscules
+      dateDebut: formData.dateDebut,
+      dateFin: dateFin,
+      nombreMembresMin: parseInt(formData.nombreMembresMin),
+      nombreMembresMax: parseInt(formData.nombreMembresMax),
+      tauxPenalite: parseFloat(formData.tauxPenalite),
+      delaiGrace: parseInt(formData.delaiGrace),
+      tresorierAssigneId: formData.tresorierAssigneId || null,
+    };
+
+    console.log(' Payload envoyé:', payload);
+
+    const result = await tontineService.createTontine(payload);
+
+    if (result.success) {
+      const tontineData = result.data?.data?.tontine;
+      
+      if (!tontineData || !tontineData.id) {
+        Alert.alert('Erreur', 'Réponse invalide du serveur');
+        return;
+      }
+
+      Alert.alert(
+        'Succès',
+        'Tontine créée avec succès',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              navigation.navigate('AddMembers', {
+                tontineId: tontineData.id,
+                tontineName: formData.nom,
+                minMembers: parseInt(formData.nombreMembresMin),
+                maxMembers: parseInt(formData.nombreMembresMax),
+              });
+            },
+          },
+        ]
+      );
+    } else {
+      const errorMsg = result.error?.message || 'Impossible de créer la tontine';
+      console.error(' Erreur création:', result.error);
+      Alert.alert('Erreur', errorMsg);
+    }
+  } catch (error) {
+    console.error(' Exception création tontine:', error);
+    Alert.alert('Erreur', 'Une erreur est survenue');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const getTresorierNom = (id) => {
+  if (!id) return 'Sélectionnez un trésorier (requis)';
+  const tresorier = tresoriers.find(t => t.id === id);
+  return tresorier ? `${tresorier.prenom} ${tresorier.nom}` : 'Sélectionnez un trésorier (requis)';
+};
+
+  const unit = formData.frequence === 'mensuelle' ? 'mois' : 'semaines';
 
   return (
     <View style={styles.container}>
@@ -178,40 +313,31 @@ const CreateTontineScreen = ({ navigation }) => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Creation de la tontine</Text>
+        <Text style={styles.title}>Creer une tontine</Text>
 
+        <Text style={styles.sectionTitle}>Nom de la tontine</Text>
         <TextInput
           style={styles.input}
-          placeholder="Nom de la tontine"
+          placeholder="Entrez le nom de la tontine ici"
           placeholderTextColor="#999"
           value={formData.nom}
           onChangeText={(value) => handleChange('nom', value)}
         />
 
-        <Text style={styles.sectionTitle}>Date de premiere distribution</Text>
-
+        <Text style={styles.sectionTitle}>Date de debut</Text>
         <View style={styles.dateContainer}>
-          <TouchableOpacity 
-            style={styles.dateButton}
-            onPress={() => setShowDayPicker(!showDayPicker)}
-          >
-            <Text style={styles.dateText}>{dateDisplay.day}</Text>
+          <TouchableOpacity style={styles.dateButton} onPress={() => setShowDayPicker(!showDayPicker)}>
+            <Text style={[styles.dateText, dateDisplay.day && { color: '#333' }]}>{dateDisplay.day || 'Jour'}</Text>
             <Ionicons name="chevron-down" size={20} color="#666" />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.dateButton, styles.dateButtonWide]}
-            onPress={() => setShowMonthPicker(!showMonthPicker)}
-          >
-            <Text style={styles.dateText}>{dateDisplay.month}</Text>
+          <TouchableOpacity style={styles.dateButton} onPress={() => setShowMonthPicker(!showMonthPicker)}>
+            <Text style={[styles.dateText, dateDisplay.month && { color: '#333' }]}>{dateDisplay.month || 'Mois'}</Text>
             <Ionicons name="chevron-down" size={20} color="#666" />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.dateButton}
-            onPress={() => setShowYearPicker(!showYearPicker)}
-          >
-            <Text style={styles.dateText}>{dateDisplay.year}</Text>
+          <TouchableOpacity style={styles.dateButton} onPress={() => setShowYearPicker(!showYearPicker)}>
+            <Text style={[styles.dateText, dateDisplay.year && { color: '#333' }]}>{dateDisplay.year || 'Annee'}</Text>
             <Ionicons name="chevron-down" size={20} color="#666" />
           </TouchableOpacity>
         </View>
@@ -220,10 +346,7 @@ const CreateTontineScreen = ({ navigation }) => {
           <View style={styles.dropdownList}>
             <ScrollView style={{ maxHeight: 150 }}>
               {days.map((d) => (
-                <TouchableOpacity key={d} onPress={() => { 
-                  setDateDisplay(prev => ({ ...prev, day: d })); 
-                  setShowDayPicker(false); 
-                }}>
+                <TouchableOpacity key={d} onPress={() => { setDateDisplay(prev => ({ ...prev, day: d.toString() })); setShowDayPicker(false); }}>
                   <Text style={styles.dropdownItem}>{d}</Text>
                 </TouchableOpacity>
               ))}
@@ -235,10 +358,7 @@ const CreateTontineScreen = ({ navigation }) => {
           <View style={styles.dropdownList}>
             <ScrollView style={{ maxHeight: 150 }}>
               {months.map((m) => (
-                <TouchableOpacity key={m} onPress={() => { 
-                  setDateDisplay(prev => ({ ...prev, month: m })); 
-                  setShowMonthPicker(false); 
-                }}>
+                <TouchableOpacity key={m} onPress={() => { setDateDisplay(prev => ({ ...prev, month: m })); setShowMonthPicker(false); }}>
                   <Text style={styles.dropdownItem}>{m}</Text>
                 </TouchableOpacity>
               ))}
@@ -250,10 +370,7 @@ const CreateTontineScreen = ({ navigation }) => {
           <View style={styles.dropdownList}>
             <ScrollView style={{ maxHeight: 150 }}>
               {years.map((y) => (
-                <TouchableOpacity key={y} onPress={() => { 
-                  setDateDisplay(prev => ({ ...prev, year: y })); 
-                  setShowYearPicker(false); 
-                }}>
+                <TouchableOpacity key={y} onPress={() => { setDateDisplay(prev => ({ ...prev, year: y.toString() })); setShowYearPicker(false); }}>
                   <Text style={styles.dropdownItem}>{y}</Text>
                 </TouchableOpacity>
               ))}
@@ -261,78 +378,92 @@ const CreateTontineScreen = ({ navigation }) => {
           </View>
         )}
 
-        <Text style={styles.dateInfo}>
-          Le <Text style={styles.highlight}>{dateDisplay.day}</Text> de chaque mois, a partir de{' '}
-          <Text style={styles.highlight}>{dateDisplay.month}</Text> {dateDisplay.year}, un membre recevra la cagnotte.
-        </Text>
-
-        <Text style={styles.sectionTitle}>Duree de la tontine</Text>
-        <Text style={styles.durationInfo}>1 mois = 1 membre</Text>
-
+        <Text style={styles.sectionTitle}>Minimum de membres</Text>
         <TouchableOpacity 
           style={styles.dropdownButton}
-          onPress={() => setShowDurationPicker(!showDurationPicker)}
+          onPress={() => setShowMinPicker(!showMinPicker)}
         >
-          <Text style={[styles.dropdownText, formData.nombreMembresMax && { color: '#333' }]}>
-            {formData.nombreMembresMax ? `${formData.nombreMembresMax} mois` : 'Selectionnez la duree'}
+          <Text style={[styles.dropdownText, formData.nombreMembresMin && { color: '#333' }]}>
+            {formData.nombreMembresMin ? `${formData.nombreMembresMin}` : 'Selectionnez le minimum de membres'}
           </Text>
           <Ionicons name="chevron-down" size={20} color="#666" />
         </TouchableOpacity>
 
-        {showDurationPicker && (
+        {showMinPicker && (
           <View style={styles.dropdownList}>
             <ScrollView style={{ maxHeight: 150 }}>
-              {durations.map((d) => (
+              {minOptions.map((d) => (
                 <TouchableOpacity key={d} onPress={() => { 
-                  handleChange('nombreMembresMax', d.toString()); 
-                  setShowDurationPicker(false); 
+                  handleChange('nombreMembresMin', d.toString()); 
+                  setShowMinPicker(false); 
                 }}>
-                  <Text style={styles.dropdownItem}>{d} mois</Text>
+                  <Text style={styles.dropdownItem}>{d}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Frequence des versements</Text>
-        <View style={styles.frequencyContainer}>
-          <TouchableOpacity 
-            style={[
-              styles.frequencyButton, 
-              formData.frequence === 'Hebdomadaire' && styles.frequencyButtonActive
-            ]}
-            onPress={() => handleChange('frequence', 'Hebdomadaire')}
-          >
-            <Text style={[
-              styles.frequencyText,
-              formData.frequence === 'Hebdomadaire' && styles.frequencyTextActive
-            ]}>
-              Hebdomadaire
-            </Text>
-          </TouchableOpacity>
+        <Text style={styles.sectionTitle}>Duree ({unit}) / Maximum de membres</Text>
+        <TouchableOpacity 
+          style={styles.dropdownButton}
+          onPress={() => setShowMaxPicker(!showMaxPicker)}
+        >
+          <Text style={[styles.dropdownText, formData.nombreMembresMax && { color: '#333' }]}>
+            {formData.nombreMembresMax ? `${formData.nombreMembresMax} ${unit}` : `Selectionnez la duree en ${unit}`}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color="#666" />
+        </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[
-              styles.frequencyButton, 
-              formData.frequence === 'Mensuelle' && styles.frequencyButtonActive
-            ]}
-            onPress={() => handleChange('frequence', 'Mensuelle')}
-          >
-            <Text style={[
-              styles.frequencyText,
-              formData.frequence === 'Mensuelle' && styles.frequencyTextActive
-            ]}>
-              Mensuelle
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {showMaxPicker && (
+          <View style={styles.dropdownList}>
+            <ScrollView style={{ maxHeight: 150 }}>
+              {maxOptions.map((d) => (
+                <TouchableOpacity key={d} onPress={() => { 
+                  handleChange('nombreMembresMax', d.toString()); 
+                  setShowMaxPicker(false); 
+                }}>
+                  <Text style={styles.dropdownItem}>{d} {unit}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
+       <Text style={styles.sectionTitle}>Fréquence des versements</Text>
+<View style={styles.frequencyContainer}>
+  <TouchableOpacity 
+    style={[
+      styles.frequencyButton, 
+      formData.frequence === 'hebdomadaire' && styles.frequencyButtonActive
+    ]}
+    onPress={() => handleChange('frequence', 'hebdomadaire')} //
+  >
+    <Text style={[
+      styles.frequencyText,
+      formData.frequence === 'hebdomadaire' && styles.frequencyTextActive
+    ]}>
+      Hebdomadaire
+    </Text>
+  </TouchableOpacity>
+
+  <TouchableOpacity 
+    style={[
+      styles.frequencyButton, 
+      formData.frequence === 'mensuelle' && styles.frequencyButtonActive
+    ]}
+    onPress={() => handleChange('frequence', 'mensuelle')} 
+  >
+    <Text style={[
+      styles.frequencyText,
+      formData.frequence === 'mensuelle' && styles.frequencyTextActive
+    ]}>
+      Mensuelle
+    </Text>
+  </TouchableOpacity>
+</View>
         <Text style={styles.sectionTitle}>Montant de la cotisation</Text>
-        <Text style={styles.amountInfo}>
-          Le montant minimum de la cotisation mensuelle est de{' '}
-          <Text style={styles.highlight}>5000 FCFA</Text>
-        </Text>
-
+      
         <TextInput
           style={styles.input}
           placeholder="Entrez le montant ici"
@@ -342,38 +473,79 @@ const CreateTontineScreen = ({ navigation }) => {
           onChangeText={(value) => handleChange('montantCotisation', value)}
         />
 
-        <Text style={styles.sectionTitle}>Tresorier assigne</Text>
-        <TouchableOpacity 
-          style={styles.dropdownButton}
-          onPress={() => setShowTresorierPicker(!showTresorierPicker)}
-          disabled={loadingTresoriers}
-        >
-          <Text style={[styles.dropdownText, formData.tresorierAssigneId && { color: '#333' }]}>
-            {loadingTresoriers ? 'Chargement...' : getTresorierNom(formData.tresorierAssigneId)}
-          </Text>
-          <Ionicons name="chevron-down" size={20} color="#666" />
-        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>Parametres de penalites</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Taux de penalite (%)"
+          placeholderTextColor="#999"
+          keyboardType="numeric"
+          value={formData.tauxPenalite}
+          onChangeText={(value) => handleChange('tauxPenalite', value)}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Delai de grace (jours)"
+          placeholderTextColor="#999"
+          keyboardType="numeric"
+          value={formData.delaiGrace}
+          onChangeText={(value) => handleChange('delaiGrace', value)}
+        />
 
-        {showTresorierPicker && tresoriers.length > 0 && (
-          <View style={styles.dropdownList}>
-            <ScrollView style={{ maxHeight: 150 }}>
-              {tresoriers.map((tresorier) => (
-                <TouchableOpacity 
-                  key={tresorier.id} 
-                  onPress={() => { 
-                    handleChange('tresorierAssigneId', tresorier.id); 
-                    setShowTresorierPicker(false); 
-                  }}
-                >
-                  <Text style={styles.dropdownItem}>
-                    {tresorier.prenom} {tresorier.nom}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+   <Text style={styles.sectionTitle}>Trésorier assigné (requis pour activation)</Text>
+<TouchableOpacity 
+  style={styles.dropdownButton}
+  onPress={() => {
+    console.log(' Clic sur dropdown trésorier');
+    console.log(' tresoriers.length:', tresoriers.length);
+    console.log(' loadingTresoriers:', loadingTresoriers);
+    setShowTresorierPicker(!showTresorierPicker);
+  }}
+  disabled={loadingTresoriers}
+>
+  <Text style={[styles.dropdownText, formData.tresorierAssigneId && { color: '#333' }]}>
+    {loadingTresoriers ? 'Chargement...' : getTresorierNom(formData.tresorierAssigneId)}
+  </Text>
+  <Ionicons name="chevron-down" size={20} color="#666" />
+</TouchableOpacity>
 
+{showTresorierPicker && (
+  <View style={styles.dropdownList}>
+    {loadingTresoriers ? (
+      <Text style={[styles.dropdownItem, { textAlign: 'center', color: '#999', padding: 15 }]}>
+        Chargement des trésoriers...
+      </Text>
+    ) : tresoriers.length === 0 ? (
+      <View style={{ padding: 15 }}>
+        <Text style={[styles.dropdownItem, { textAlign: 'center', color: '#E74C3C', marginBottom: 10 }]}>
+          Aucun trésorier disponible
+        </Text>
+        <Text style={{ textAlign: 'center', color: '#999', fontSize: 12 }}>
+          Créez d'abord un compte trésorier via le menu principal
+        </Text>
+      </View>
+    ) : (
+      <ScrollView style={{ maxHeight: 150 }}>
+        {tresoriers.map((tresorier) => {
+          console.log(' Trésorier dans la liste:', tresorier);
+          return (
+            <TouchableOpacity 
+              key={tresorier.id} 
+              onPress={() => { 
+                console.log(' Trésorier sélectionné:', tresorier.id, tresorier.prenom, tresorier.nom);
+                handleChange('tresorierAssigneId', tresorier.id); 
+                setShowTresorierPicker(false); 
+              }}
+            >
+              <Text style={styles.dropdownItem}>
+                {tresorier.prenom} {tresorier.nom}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    )}
+  </View>
+)}
         <Text style={styles.sectionTitle}>Description / Regles (optionnel)</Text>
         <TextInput
           style={[styles.input, styles.descriptionInput]}

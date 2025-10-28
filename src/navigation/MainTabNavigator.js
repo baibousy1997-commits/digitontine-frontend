@@ -41,59 +41,26 @@ const MainTabNavigator = () => {
         tabBarStyle: { display: 'none', height: 0 }, 
       }}
     >
-      <Stack.Screen 
-  name="Home" 
-  component={HomeScreen} 
-  options={{ headerShown: false }} 
-/>
-
-{/* Dashboards */}
-<Stack.Screen 
-  name="DashboardAdmin" 
-  component={DashboardAdminScreen} 
-  options={{ headerShown: false }} 
-/>
-<Stack.Screen 
-  name="DashboardTresorier" 
-  component={DashboardTresorierScreen} 
-  options={{ headerShown: false }} 
-/>
-<Stack.Screen 
-  name="DashboardMembre" 
-  component={DashboardMembreScreen} 
-  options={{ headerShown: false }} 
-/>
-
-{/* Profil et Compte */}
-<Stack.Screen 
-  name="Profile" 
-  component={ProfileScreen} 
-  options={{ headerShown: false }} 
-/>
-<Stack.Screen 
-  name="Account" 
-  component={AccountScreen} 
-  options={{ headerShown: false }} 
-/>
-
-{/* Paramètres */}
-<Stack.Screen 
-  name="Settings" 
-  component={SettingsScreen} 
-  options={{ headerShown: false }} 
-/>
-<Stack.Screen 
-  name="ChangePassword" 
-  component={ChangePasswordScreen} 
-  options={{ headerShown: false }} 
-/>
-
-{/* Utilisateurs (Admin) */}
-<Stack.Screen 
-  name="CreateUser" 
-  component={CreateUsersScreen} 
-  options={{ headerShown: false }} 
-/>
+     <Tab.Screen 
+        name="Home" 
+        component={HomeScreen} 
+      />
+      <Tab.Screen 
+        name="DashboardAdmin" 
+        component={DashboardAdminScreen} 
+      />
+      <Tab.Screen 
+        name="DashboardTresorier" 
+        component={DashboardTresorierScreen} 
+      />
+      <Tab.Screen 
+        name="DashboardMembre" 
+        component={DashboardMembreScreen} 
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen} 
+      />
     </Tab.Navigator>
   );
 };

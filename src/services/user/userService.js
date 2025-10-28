@@ -75,18 +75,22 @@ const userService = {
   // LISTE ET RECHERCHE
   // ========================================
 
-  async listUsers(params = {}) {
-    const queryParams = new URLSearchParams();
-    
-    if (params.page) queryParams.append('page', params.page);
-    if (params.limit) queryParams.append('limit', params.limit);
-    if (params.role) queryParams.append('role', params.role);
-    if (params.isActive !== undefined) queryParams.append('isActive', params.isActive);
-    if (params.search) queryParams.append('search', params.search);
+ async listUsers(params = {}) {
+  const queryParams = new URLSearchParams();
+  
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+  if (params.role) queryParams.append('role', params.role);
+  if (params.isActive !== undefined) queryParams.append('isActive', params.isActive);
+  if (params.search) queryParams.append('search', params.search);
 
-    const url = `${API_CONFIG.ENDPOINTS.USERS.LIST}?${queryParams.toString()}`;
-    return await get(url);
-  },
+  const url = `${API_CONFIG.ENDPOINTS.USERS.LIST}?${queryParams.toString()}`;
+  
+  //  AJOUTEZ CE LOG POUR DÉBOGUER
+  console.log('🔗 URL complète:', url);
+  
+  return await get(url);
+},
 
   async getUserStats() {
     return await get(API_CONFIG.ENDPOINTS.USERS.STATS);

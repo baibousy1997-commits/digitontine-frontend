@@ -15,16 +15,12 @@ const dashboardService = {
   /**
    * Tableau de bord Administrateur
    * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   * 
-   * Retourne :
-   * - Statistiques utilisateurs (total, actifs, nouveaux ce mois, répartition par rôle)
-   * - Statistiques tontines (total, actives, terminées, en attente, bloquées, populaires)
-   * - Statistiques financières globales
-   * - Alertes (membres en retard, tontines bloquées)
-   * - Logs d'audit récents
    */
   async getDashboardAdmin() {
-    return await get(API_CONFIG.ENDPOINTS.DASHBOARD.ADMIN);
+    console.log('📊 [SERVICE] getDashboardAdmin appelé');
+    const result = await get(API_CONFIG.ENDPOINTS.DASHBOARD.ADMIN);
+    console.log('📊 [SERVICE] Résultat getDashboardAdmin:', result);
+    return result;
   },
 
   // ========================================
@@ -34,17 +30,12 @@ const dashboardService = {
   /**
    * Tableau de bord Trésorier
    * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   * 
-   * Retourne :
-   * - KPIs principaux (montant total collecté, distribué, solde disponible, taux de recouvrement)
-   * - Transactions en attente de validation
-   * - Total des pénalités
-   * - Répartition des cotisations par tontine
-   * - Évolution des cotisations (30 derniers jours)
-   * - Top 5 membres ponctuels
    */
   async getDashboardTresorier() {
-    return await get(API_CONFIG.ENDPOINTS.DASHBOARD.TRESORIER);
+    console.log('💰 [SERVICE] getDashboardTresorier appelé');
+    const result = await get(API_CONFIG.ENDPOINTS.DASHBOARD.TRESORIER);
+    console.log('💰 [SERVICE] Résultat getDashboardTresorier:', result);
+    return result;
   },
 
   // ========================================
@@ -54,15 +45,12 @@ const dashboardService = {
   /**
    * Tableau de bord Membre
    * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   * 
-   * Retourne :
-   * - Résumé (nombre de tontines actives, total cotisé, total gagné, pénalités, retards)
-   * - Mes tontines actives
-   * - Mes gains
-   * - Prochaines échéances
    */
   async getDashboardMembre() {
-    return await get(API_CONFIG.ENDPOINTS.DASHBOARD.MEMBRE);
+    console.log('👤 [SERVICE] getDashboardMembre appelé');
+    const result = await get(API_CONFIG.ENDPOINTS.DASHBOARD.MEMBRE);
+    console.log('👤 [SERVICE] Résultat getDashboardMembre:', result);
+    return result;
   },
 
   // ========================================
@@ -74,11 +62,6 @@ const dashboardService = {
    * @param {string} dateDebut - Date de début (ISO format) - optionnel
    * @param {string} dateFin - Date de fin (ISO format) - optionnel
    * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   * 
-   * Retourne :
-   * - Statistiques des transactions (total, count, moyenne)
-   * - Statistiques des tontines (répartition par statut)
-   * - Statistiques des utilisateurs (répartition par rôle)
    */
   async getStatistiquesGlobales(dateDebut = null, dateFin = null) {
     const queryParams = new URLSearchParams();
@@ -87,7 +70,11 @@ const dashboardService = {
     if (dateFin) queryParams.append('dateFin', dateFin);
 
     const url = `${API_CONFIG.ENDPOINTS.DASHBOARD.STATISTIQUES}?${queryParams.toString()}`;
-    return await get(url);
+    console.log('📈 [SERVICE] getStatistiquesGlobales:', url);
+    
+    const result = await get(url);
+    console.log('📈 [SERVICE] Résultat statistiques:', result);
+    return result;
   },
 
   // ========================================
@@ -100,14 +87,21 @@ const dashboardService = {
    * @returns {Promise<{success: boolean, data?: any, error?: any}>}
    */
   async getDashboardByRole(role) {
+    console.log('🔀 [SERVICE] getDashboardByRole:', role);
+    
     switch (role) {
       case 'Administrateur':
+      case 'Admin':
         return await this.getDashboardAdmin();
+      
       case 'Tresorier':
         return await this.getDashboardTresorier();
+      
       case 'Membre':
         return await this.getDashboardMembre();
+      
       default:
+        console.warn('⚠️ [SERVICE] Rôle invalide:', role);
         return { success: false, error: { message: 'Rôle invalide' } };
     }
   },
@@ -127,6 +121,7 @@ const dashboardService = {
     // Extraire les KPIs selon le rôle
     switch (role) {
       case 'Administrateur':
+      case 'Admin':
         return {
           totalUtilisateurs: data.utilisateurs?.total || 0,
           utilisateursActifs: data.utilisateurs?.actifs || 0,
@@ -170,7 +165,7 @@ const dashboardService = {
 
     let alerts = [];
 
-    if (role === 'Administrateur') {
+    if (role === 'Administrateur' || role === 'Admin') {
       if (data.alertes?.membresEnRetard > 0) {
         alerts.push({
           type: 'warning',
