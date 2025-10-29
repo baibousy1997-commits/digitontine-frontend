@@ -35,18 +35,15 @@ import TransactionsValidationScreen from '../screens/Transaction/TransactionsVal
 import CreateTransactionScreen from '../screens/Transaction/CreateTransactionScreen';
 import TransactionDetailsScreen from '../screens/Transaction/TransactionDetailsScreen';
 
+// Notification Screen
+import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
+
 const Stack = createStackNavigator();
 
-// ✅ Composants séparés (fix warning)
+// Composants séparés (fix warning)
 const WalletPlaceholder = () => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
     <Text>Wallet - A venir</Text>
-  </View>
-);
-
-const NotificationsPlaceholder = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text>Notifications - A venir</Text>
   </View>
 );
 
@@ -80,9 +77,11 @@ const MainStack = () => (
     <Stack.Screen name="CreateTransaction" component={CreateTransactionScreen} />
     <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
     
-    {/* ✅ Fix warnings: utiliser des composants au lieu d'inline functions */}
+    {/* ✅ Notifications Screen - Réel */}
+    <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    
+    {/* Wallet Placeholder */}
     <Stack.Screen name="Wallet" component={WalletPlaceholder} />
-    <Stack.Screen name="Notifications" component={NotificationsPlaceholder} />
   </Stack.Navigator>
 );
 

@@ -158,17 +158,7 @@ const AccountScreen = ({ navigation }) => {
           <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
         </TouchableOpacity>
 
-        {/* Mes tontines */}
-        <TouchableOpacity 
-          style={[AccountStyles.menuItem, { backgroundColor: theme.surface }]}
-          onPress={() => navigation.navigate('MyTontines')}
-        >
-          <View style={[AccountStyles.menuIconContainer, { backgroundColor: theme.inputBackground }]}>
-            <Ionicons name="refresh-outline" size={24} color={Colors.primaryDark} />
-          </View>
-          <Text style={[AccountStyles.menuText, { color: theme.text }]}>Mes tontines</Text>
-          <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
-        </TouchableOpacity>
+       
 
         {/* Parametres */}
         <TouchableOpacity 

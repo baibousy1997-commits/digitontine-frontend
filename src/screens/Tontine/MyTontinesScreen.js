@@ -32,12 +32,12 @@ const MyTontinesScreen = ({ navigation }) => {
   const loadTontines = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Chargement des tontines...');
+      console.log(' Chargement des tontines...');
 
       let result;
 
-      // ✅ CORRECTION : Utiliser la bonne route selon le rôle
-      if (user?.role === 'Administrateur') {
+      // CORRECTION : Utiliser la bonne route selon le rôle
+      if (user?.role === 'admin') {
         // Admin : Liste complète via /tontines
         result = await tontineService.listTontines({ limit: 100 });
       } else {
@@ -47,14 +47,14 @@ const MyTontinesScreen = ({ navigation }) => {
 
       if (result.success) {
         const tontinesList = result.data?.data?.tontines || result.data?.data || [];
-        console.log('✅ Tontines chargées:', tontinesList.length);
+        console.log(' Tontines chargées:', tontinesList.length);
         setTontines(tontinesList);
       } else {
-        console.error('❌ Erreur:', result.error);
+        console.error(' Erreur:', result.error);
         setTontines([]);
       }
     } catch (error) {
-      console.error('❌ Erreur chargement tontines:', error);
+      console.error(' Erreur chargement tontines:', error);
       setTontines([]);
     } finally {
       setLoading(false);
@@ -67,12 +67,12 @@ const MyTontinesScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  // ✅ Filtrer les tontines selon le statut sélectionné
+  //  Filtrer les tontines selon le statut sélectionné
   const filteredTontines = filter === 'all' 
     ? tontines 
     : tontines.filter(t => t.statut === filter);
 
-  // ✅ Fonction pour obtenir l'ID correct (MongoDB ou standard)
+  //  Fonction pour obtenir l'ID correct (MongoDB ou standard)
   const getTontineId = (tontine) => {
     return tontine._id || tontine.id;
   };
@@ -92,7 +92,7 @@ const MyTontinesScreen = ({ navigation }) => {
       style={[styles.tontineCard, { backgroundColor: theme.surface }]}
       onPress={() => {
         const tontineId = getTontineId(item);
-        console.log('📍 Navigation vers tontine:', tontineId);
+        console.log(' Navigation vers tontine:', tontineId);
         navigation.navigate('TontineDetails', { tontineId });
       }}
     >
@@ -158,7 +158,7 @@ const MyTontinesScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* ✅ Filtres - Ajout de "Toutes" */}
+      {/*  Filtres - Ajout de "Toutes" */}
       <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[

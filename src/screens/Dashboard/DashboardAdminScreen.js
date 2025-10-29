@@ -9,12 +9,16 @@ import {
   RefreshControl,
   StyleSheet,
   StatusBar,
+  Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import dashboardService from '../../services/dashboard/dashboardService';
 import tontineService from '../../services/tontine/tontineService';
+import tirageService from '../../services/tirage/tirageService';
 import Colors from '../../constants/colors';
 
 const DashboardAdminScreen = ({ navigation }) => {
@@ -23,59 +27,141 @@ const DashboardAdminScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [tontines, setTontines] = useState([]);
+  const [showTontineModal, setShowTontineModal] = useState(false);
+  const [tirageType, setTirageType] = useState(null);
+  const [processingTirage, setProcessingTirage] = useState(false);
 
   useEffect(() => {
     loadDashboard();
   }, []);
 
  const loadDashboard = async () => {
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
+    
+    console.log('ADMIN - Chargement dashboard admin...');
+    
+    const result = await dashboardService.getDashboardAdmin();
+    if (result.success) {
+      console.log('Dashboard data:', result.data?.data);
+      setDashboardData(result.data?.data);
       
-      console.log('ADMIN - Chargement dashboard admin...');
-      
-      // 1. Dashboard Admin
-      const result = await dashboardService.getDashboardAdmin();
-      if (result.success) {
-        console.log('Dashboard data:', result.data?.data);
-        setDashboardData(result.data?.data);
-      } else {
-        console.error('Erreur dashboard:', result.error);
-      }
-
-      // 2. ADMIN charge TOUTES les tontines via /tontines
-      console.log('ADMIN - Chargement de TOUTES les tontines...');
-      const tontinesResult = await tontineService.listTontines({ limit: 100 });
-      
-      if (tontinesResult.success) {
-        let tontinesList = [];
-        
-        if (Array.isArray(tontinesResult.data?.data?.data)) {
-          tontinesList = tontinesResult.data.data.data;
-        } else if (Array.isArray(tontinesResult.data?.data)) {
-          tontinesList = tontinesResult.data.data;
-        } else if (Array.isArray(tontinesResult.data)) {
-          tontinesList = tontinesResult.data;
-        }
-        
-        console.log('Tontines chargees (Admin):', tontinesList.length);
-        console.log('Structure:', tontinesList[0]);
-        setTontines(tontinesList);
-      } else {
-        console.error('Erreur tontines:', tontinesResult.error);
-        setTontines([]);
-      }
-    } catch (error) {
-      console.error('Erreur chargement dashboard admin:', error);
-    } finally {
-      setLoading(false);
+      // ✅ NOUVEAU : Utiliser les tontines du dashboard
+      const tontinesList = result.data?.data?.tontines?.mesTontines || [];
+      console.log('Tontines chargees:', tontinesList.length);
+      setTontines(tontinesList);
+    } else {
+      console.error('Erreur dashboard:', result.error);
     }
-  };
+  } catch (error) {
+    console.error('Erreur chargement dashboard admin:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadDashboard();
     setRefreshing(false);
+  };
+
+  const handleTirageNormal = () => {
+    setTirageType('normal');
+    setShowTontineModal(true);
+  };
+
+  const handleTirageTest = () => {
+    Alert.alert(
+      'MODE TEST',
+      'Ce tirage sera effectue SANS verification des cotisations ni des opt-in. Continuer ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Continuer',
+          onPress: () => {
+            setTirageType('test');
+            setShowTontineModal(true);
+          },
+        },
+      ]
+    );
+  };
+
+  const effectuerTirage = async (tontineId) => {
+    try {
+      setProcessingTirage(true);
+      setShowTontineModal(false);
+
+      const tontine = tontines.find(t => (t.id || t._id) === tontineId);
+      if (!tontine) {
+        Alert.alert('Erreur', 'Tontine introuvable');
+        return;
+      }
+
+      let result;
+      if (tirageType === 'test') {
+        result = await tirageService.effectuerTirageAutomatiqueTest(tontineId);
+      } else {
+        result = await tirageService.effectuerTirageAutomatique(tontineId);
+      }
+
+      if (result.success) {
+        const beneficiaire = result.data?.data?.tirage?.beneficiaire || result.data?.tirage?.beneficiaire;
+        const montant = result.data?.data?.tirage?.montant || result.data?.tirage?.montant;
+
+        Alert.alert(
+          'Tirage Effectue',
+          `Gagnant : ${beneficiaire?.nom || 'N/A'}\n` +
+          `Montant : ${montant?.toLocaleString() || 0} FCFA\n` +
+          `Tontine : ${tontine.nom}`,
+          [{ text: 'OK', onPress: () => loadDashboard() }]
+        );
+      } else {
+        Alert.alert(
+          'Erreur',
+          result.error?.message || 'Impossible d\'effectuer le tirage'
+        );
+      }
+    } catch (error) {
+      console.error('Erreur tirage:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue lors du tirage');
+    } finally {
+      setProcessingTirage(false);
+    }
+  };
+
+  const renderTontineItem = ({ item }) => {
+    const tontineId = item.id || item._id;
+    const isActive = item.statut === 'Active';
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.modalTontineItem,
+          { backgroundColor: isActive ? theme.surface : '#f5f5f5' },
+        ]}
+        onPress={() => effectuerTirage(tontineId)}
+        disabled={!isActive || processingTirage}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.modalTontineName, { color: isActive ? theme.text : '#999' }]}>
+            {item.nom}
+          </Text>
+          <Text style={[styles.modalTontineInfo, { color: theme.textSecondary }]}>
+            {item.nombreMembres || 0} membres - {item.montantCotisation?.toLocaleString()} FCFA
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.modalStatutBadge,
+            { backgroundColor: isActive ? Colors.accentGreen : Colors.placeholder },
+          ]}
+        >
+          <Text style={styles.modalStatutText}>{item.statut}</Text>
+        </View>
+      </TouchableOpacity>
+    );
   };
 
   if (loading && !dashboardData) {
@@ -90,7 +176,6 @@ const DashboardAdminScreen = ({ navigation }) => {
   const utilisateurs = dashboardData?.utilisateurs || {};
   const tontinesStats = dashboardData?.tontines || {};
   
-  // ✅ Structure financière
   const financierData = dashboardData?.financier || [];
   const financier = {
     totalCollecte: Array.isArray(financierData) 
@@ -104,7 +189,6 @@ const DashboardAdminScreen = ({ navigation }) => {
   
   const alertes = dashboardData?.alertes || {};
 
-  // ✅ Répartition des rôles
   const repartition = {};
   if (utilisateurs.repartitionRoles && Array.isArray(utilisateurs.repartitionRoles)) {
     utilisateurs.repartitionRoles.forEach(r => {
@@ -132,27 +216,25 @@ const DashboardAdminScreen = ({ navigation }) => {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Alertes */}
         {(alertes.membresEnRetard > 0 || alertes.tontinesBloquees > 0) && (
           <View style={[styles.alertBox, { backgroundColor: '#fff3cd' }]}>
             <Ionicons name="warning" size={24} color="#856404" />
             <View style={{ flex: 1, marginLeft: 12 }}>
               {alertes.membresEnRetard > 0 && (
                 <Text style={styles.alertText}>
-                  ⚠️ {alertes.membresEnRetard} membre(s) en retard
+                  {alertes.membresEnRetard} membre(s) en retard
                 </Text>
               )}
               {alertes.tontinesBloquees > 0 && (
                 <Text style={styles.alertText}>
-                  🔒 {alertes.tontinesBloquees} tontine(s) bloquée(s)
+                  {alertes.tontinesBloquees} tontine(s) bloquee(s)
                 </Text>
               )}
             </View>
           </View>
         )}
 
-        {/* KPIs Utilisateurs */}
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>👥 Utilisateurs</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Utilisateurs</Text>
         <View style={styles.kpiRow}>
           <View style={[styles.kpiCard, { backgroundColor: theme.surface }]}>
             <MaterialCommunityIcons name="account-group" size={32} color={Colors.primaryDark} />
@@ -173,9 +255,8 @@ const DashboardAdminScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Répartition par rôle */}
         <View style={[styles.infoCard, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.infoTitle, { color: theme.text }]}>Répartition par rôle</Text>
+          <Text style={[styles.infoTitle, { color: theme.text }]}>Repartition par role</Text>
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Administrateurs</Text>
             <Text style={[styles.infoValue, { color: theme.text }]}>
@@ -183,7 +264,7 @@ const DashboardAdminScreen = ({ navigation }) => {
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Trésoriers</Text>
+            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Tresoriers</Text>
             <Text style={[styles.infoValue, { color: theme.text }]}>
               {repartition.Tresorier || 0}
             </Text>
@@ -196,8 +277,7 @@ const DashboardAdminScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* KPIs Tontines */}
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>💰 Tontines</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Tontines</Text>
         <View style={styles.kpiRow}>
           <View style={[styles.kpiCard, { backgroundColor: theme.surface }]}>
             <MaterialCommunityIcons name="hand-coin" size={32} color={Colors.primaryDark} />
@@ -214,16 +294,15 @@ const DashboardAdminScreen = ({ navigation }) => {
           <View style={[styles.kpiCard, { backgroundColor: theme.surface }]}>
             <Ionicons name="checkmark-done" size={32} color={Colors.placeholder} />
             <Text style={[styles.kpiValue, { color: theme.text }]}>{tontinesStats.terminees || 0}</Text>
-            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Terminées</Text>
+            <Text style={[styles.kpiLabel, { color: theme.textSecondary }]}>Terminees</Text>
           </View>
         </View>
 
-        {/* ✅ LISTE DES TONTINES RÉCENTES */}
         {tontines.length > 0 ? (
           <>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>
-                Tontines récentes ({tontines.length})
+                Tontines recentes ({tontines.length})
               </Text>
               <TouchableOpacity onPress={() => navigation.navigate('ManageTontines')}>
                 <Text style={[styles.seeAllText, { color: Colors.primaryDark }]}>
@@ -246,7 +325,7 @@ const DashboardAdminScreen = ({ navigation }) => {
                       {tontine.nom}
                     </Text>
                     <Text style={[styles.tontineInfo, { color: theme.textSecondary }]}>
-                      {tontine.nombreMembres || 0} membres • {tontine.montantCotisation?.toLocaleString()} FCFA
+                      {tontine.nombreMembres || 0} membres - {tontine.montantCotisation?.toLocaleString()} FCFA
                     </Text>
                   </View>
                   <View style={[
@@ -262,19 +341,18 @@ const DashboardAdminScreen = ({ navigation }) => {
         ) : (
           <View style={[styles.infoCard, { backgroundColor: theme.surface }]}>
             <Text style={[styles.infoTitle, { color: theme.text }]}>
-              Aucune tontine créée
+              Aucune tontine creee
             </Text>
             <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>
-              Créez votre première tontine pour commencer
+              Creez votre premiere tontine pour commencer
             </Text>
           </View>
         )}
 
-        {/* Statistiques Financières */}
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>💵 Financier</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Financier</Text>
         <View style={[styles.infoCard, { backgroundColor: theme.surface }]}>
           <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Total collecté</Text>
+            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Total collecte</Text>
             <Text style={[styles.infoValue, { color: Colors.accentGreen, fontWeight: 'bold' }]}>
               {financier.totalCollecte?.toLocaleString() || 0} FCFA
             </Text>
@@ -287,14 +365,13 @@ const DashboardAdminScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Actions rapides */}
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>⚡ Actions rapides</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Actions rapides</Text>
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
           onPress={() => navigation.navigate('CreateUser')}
         >
           <Ionicons name="person-add" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>Créer un utilisateur</Text>
+          <Text style={styles.actionButtonText}>Creer un utilisateur</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -302,7 +379,7 @@ const DashboardAdminScreen = ({ navigation }) => {
           onPress={() => navigation.navigate('CreateTontine')}
         >
           <MaterialCommunityIcons name="hand-coin" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>Créer une tontine</Text>
+          <Text style={styles.actionButtonText}>Creer une tontine</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -310,9 +387,82 @@ const DashboardAdminScreen = ({ navigation }) => {
           onPress={() => navigation.navigate('ManageTontines')}
         >
           <MaterialCommunityIcons name="cog" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>Gérer les tontines</Text>
+          <Text style={styles.actionButtonText}>Gerer les tontines</Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Tirages</Text>
+        
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#FF6B6B' }]}
+          onPress={handleTirageNormal}
+          disabled={tontines.length === 0}
+        >
+          <MaterialCommunityIcons name="dice-multiple" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Tirage Normal (avec validations)</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#FFA500' }]}
+          onPress={handleTirageTest}
+          disabled={tontines.length === 0}
+        >
+          <MaterialCommunityIcons name="flask" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Tirage TEST (sans validations)</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal
+        visible={showTontineModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowTontineModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                {tirageType === 'test' ? 'Tirage TEST' : 'Tirage Normal'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowTontineModal(false)}>
+                <Ionicons name="close" size={28} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+
+            {tirageType === 'test' && (
+              <View style={[styles.warningBox, { backgroundColor: '#fff3cd' }]}>
+                <Ionicons name="warning" size={20} color="#856404" />
+                <Text style={styles.warningText}>
+                  Mode TEST : Aucune verification des cotisations ni opt-in
+                </Text>
+              </View>
+            )}
+
+            <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
+              Selectionnez une tontine active :
+            </Text>
+
+            {processingTirage ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primaryDark} />
+                <Text style={{ color: theme.text, marginTop: 10 }}>
+                  Tirage en cours...
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={tontines.filter(t => t.statut === 'Active')}
+                keyExtractor={(item) => item.id || item._id}
+                renderItem={renderTontineItem}
+                ListEmptyComponent={
+                  <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                    Aucune tontine active disponible
+                  </Text>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -418,6 +568,81 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   actionButtonText: { fontSize: 16, fontWeight: '600', color: '#fff', marginLeft: 10 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    height: '70%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 15,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#856404',
+    marginLeft: 10,
+    flex: 1,
+  },
+  modalTontineItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  modalTontineName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  modalTontineInfo: {
+    fontSize: 13,
+  },
+  modalStatutBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  modalStatutText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    textAlign: 'center',
+    fontSize: 14,
+    marginTop: 30,
+  },
 });
 
 export default DashboardAdminScreen;

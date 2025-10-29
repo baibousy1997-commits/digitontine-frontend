@@ -146,8 +146,8 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
     if (!value || value.trim() === '') {
       return null; // Pas d'erreur si vide
     }
-    if (value.trim().length < 10) {
-      return 'L\'adresse doit contenir au moins 10 caractères';
+    if (value.trim().length < 2) {
+      return 'L\'adresse doit contenir au moins 2 caractères';
     }
     return null;
   };
@@ -765,7 +765,7 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
 
         {/* Adresse (optionnelle) */}
         <Text style={[styles.label, { color: theme.text }]}>
-          Adresse <Text style={{ color: theme.placeholder, fontSize: 13 }}>(optionnel)</Text>
+          Adresse <Text style={{ color: theme.placeholder, fontSize: 13 }}></Text>
         </Text>
         <View style={{ marginBottom: 15 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>

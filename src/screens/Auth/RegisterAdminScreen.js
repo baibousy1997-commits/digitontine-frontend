@@ -278,7 +278,7 @@ const RegisterAdminScreen = ({ navigation }) => {
             />
 
             {/* Adresse */}
-            <Text style={styles.label}>Adresse (optionnel)</Text>
+            <Text style={styles.label}>Adresse *</Text>
             <TextInput
               style={styles.input}
               value={adresse}

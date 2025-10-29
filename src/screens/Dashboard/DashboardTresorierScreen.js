@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import dashboardService from '../../services/dashboard/dashboardService';
+import tontineService from '../../services/tontine/tontineService';
 import Colors from '../../constants/colors';
 
 const DashboardTresorierScreen = ({ navigation }) => {
@@ -22,24 +23,41 @@ const DashboardTresorierScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
+  const [mesTontines, setMesTontines] = useState([]);
 
   useEffect(() => {
     loadDashboard();
   }, []);
 
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
-      const result = await dashboardService.getDashboardTresorier();
-      if (result.success) {
-        setDashboardData(result.data?.data);
-      }
-    } catch (error) {
-      console.error('Erreur chargement dashboard tresorier:', error);
-    } finally {
-      setLoading(false);
+const loadDashboard = async () => {
+  try {
+    setLoading(true);
+    
+    console.log('TRESORIER - Chargement dashboard tresorier...');
+    
+    const result = await dashboardService.getDashboardTresorier();
+    
+    if (result.success) {
+      const data = result.data?.data;
+      console.log('Dashboard data:', data);
+      setDashboardData(data);
+      
+      // ✅ Les tontines viennent maintenant du dashboard
+      const tontinesList = data?.mesTontines || [];
+      console.log('Tontines du trésorier:', tontinesList.length);
+      setMesTontines(tontinesList);
+    } else {
+      console.error('Erreur dashboard:', result.error);
+      setDashboardData(null);
+      setMesTontines([]);
     }
-  };
+    
+  } catch (error) {
+    console.error('Erreur chargement dashboard tresorier:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -47,18 +65,32 @@ const DashboardTresorierScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
+  const getTontineId = (tontine) => {
+    return tontine._id || tontine.id;
+  };
+
+  const getStatutColor = (statut) => {
+    switch (statut) {
+      case 'Active': return Colors.accentGreen;
+      case 'En attente': return Colors.accentYellow;
+      case 'Terminee': return Colors.placeholder;
+      case 'Bloquee': return Colors.danger;
+      default: return Colors.placeholder;
+    }
+  };
+
   if (loading && !dashboardData) {
     return (
       <View style={[styles.container, { backgroundColor: theme.background }]}>
-        <ActivityIndicator size="large" color={theme.primaryDark} />
+        <ActivityIndicator size="large" color={Colors.primaryDark} />
+        <Text style={{ color: theme.text, marginTop: 10 }}>Chargement...</Text>
       </View>
     );
   }
 
-  // Valeurs par défaut pour éviter null errors
   const kpis = dashboardData?.kpis || {};
-  const transactionsEnAttente = dashboardData?.transactionsEnAttente || [];  // Corrigé
-  const topMembres = dashboardData?.topMembres || [];  // Corrigé
+  const transactionsEnAttente = dashboardData?.transactionsEnAttente || [];
+  const topMembres = dashboardData?.topMembres || [];
 
   const montantTotalCollecte = kpis?.montantTotalCollecte || 0;
   const montantTotalDistribue = kpis?.montantTotalDistribue || 0;
@@ -71,7 +103,6 @@ const DashboardTresorierScreen = ({ navigation }) => {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={theme.isDarkMode ? 'light-content' : 'dark-content'} />
       
-      {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.surface }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={26} color={theme.text} />
@@ -152,6 +183,49 @@ const DashboardTresorierScreen = ({ navigation }) => {
           </View>
         </View>
 
+        {/* Mes tontines (Tresorier) */}
+        {mesTontines.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>
+                Mes tontines ({mesTontines.length})
+              </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('MyTontines')}>
+                <Text style={[styles.seeAllText, { color: Colors.primaryDark }]}>
+                  Voir tout
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            {mesTontines.slice(0, 3).map((tontine, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.tontineCard, { backgroundColor: theme.surface }]}
+                onPress={() => navigation.navigate('TontineDetails', { 
+                  tontineId: getTontineId(tontine)
+                })}
+              >
+                <View style={styles.tontineHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.tontineName, { color: theme.text }]}>
+                      {tontine.nom}
+                    </Text>
+                    <Text style={[styles.tontineInfo, { color: theme.textSecondary }]}>
+                      {tontine.nombreMembres || 0} membres • {tontine.montantCotisation?.toLocaleString()} FCFA
+                    </Text>
+                  </View>
+                  <View style={[
+                    styles.statutBadge, 
+                    { backgroundColor: getStatutColor(tontine.statut) }
+                  ]}>
+                    <Text style={styles.statutText}>{tontine.statut}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
+
         {/* Transactions en attente */}
         {transactionsEnAttente.length > 0 && (
           <>
@@ -169,10 +243,10 @@ const DashboardTresorierScreen = ({ navigation }) => {
                 >
                   <View style={styles.transactionLeft}>
                     <Text style={[styles.transactionUser, { color: theme.text }]}>
-                      {item.user?.prenom || 'N/A'} {item.user?.nom || 'N/A'}
+                      {item.userId?.prenom || 'N/A'} {item.userId?.nom || 'N/A'}
                     </Text>
                     <Text style={[styles.transactionTontine, { color: theme.textSecondary }]}>
-                      {item.tontine?.nom || 'Tontine inconnue'}
+                      {item.tontineId?.nom || 'Tontine inconnue'}
                     </Text>
                   </View>
                   <View style={styles.transactionRight}>
@@ -243,6 +317,14 @@ const DashboardTresorierScreen = ({ navigation }) => {
           <MaterialCommunityIcons name="finance" size={24} color="#fff" />
           <Text style={styles.actionButtonText}>Historique des transactions</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: Colors.accentGreen }]}
+          onPress={() => navigation.navigate('MyTontines')}
+        >
+          <MaterialCommunityIcons name="hand-coin" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Voir mes tontines</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -270,7 +352,15 @@ const styles = StyleSheet.create({
   },
   alertText: { fontSize: 14, color: '#856404', fontWeight: '600' },
   alertSubtext: { fontSize: 12, marginTop: 4 },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 15,
+  },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginTop: 20, marginBottom: 15 },
+  seeAllText: { fontSize: 14, fontWeight: '600' },
   kpiRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -307,6 +397,29 @@ const styles = StyleSheet.create({
   },
   infoLabel: { fontSize: 14 },
   infoValue: { fontSize: 14, fontWeight: '600' },
+  tontineCard: {
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  tontineHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tontineName: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  tontineInfo: { fontSize: 13 },
+  statutBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  statutText: { fontSize: 11, color: '#fff', fontWeight: '600' },
   transactionCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',

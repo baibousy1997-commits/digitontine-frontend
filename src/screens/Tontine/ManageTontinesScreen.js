@@ -38,17 +38,30 @@ const ManageTontinesScreen = ({ navigation }) => {
     try {
       setLoading(true);
       const result = await tontineService.listTontines({ limit: 100 });
-
-      if (result.success) {
-        const tontinesList = result.data?.data?.tontines || result.data?.data || [];
-        console.log('✅ Tontines chargées (Admin):', tontinesList.length);
-        setTontines(tontinesList);
-      } else {
-        console.error('❌ Erreur:', result.error);
+if (result.success) {
+  // Gérer toutes les structures possibles de réponse API
+  let tontinesList = [];
+  
+  if (Array.isArray(result.data?.data?.data)) {
+    tontinesList = result.data.data.data;
+  } else if (Array.isArray(result.data?.data?.tontines)) {
+    tontinesList = result.data.data.tontines;
+  } else if (Array.isArray(result.data?.data)) {
+    tontinesList = result.data.data;
+  } else if (Array.isArray(result.data)) {
+    tontinesList = result.data;
+  }
+  
+  console.log('Tontines chargées (Admin):', tontinesList.length);
+  console.log('Structure:', tontinesList[0]);
+  setTontines(tontinesList);
+}
+       else {
+        console.error(' Erreur:', result.error);
         setTontines([]);
       }
     } catch (error) {
-      console.error('❌ Erreur chargement tontines:', error);
+      console.error(' Erreur chargement tontines:', error);
       setTontines([]);
     } finally {
       setLoading(false);
@@ -99,14 +112,14 @@ const ManageTontinesScreen = ({ navigation }) => {
               const result = await tontineService.activateTontine(getTontineId(tontine));
               
               if (result.success) {
-                Alert.alert('✅ Succès', 'Tontine activée avec succès');
+                Alert.alert(' Succès', 'Tontine activée avec succès');
                 await loadTontines();
               } else {
-                Alert.alert('❌ Erreur', result.error?.message || 'Impossible d\'activer la tontine');
+                Alert.alert(' Erreur', result.error?.message || 'Impossible d\'activer la tontine');
               }
             } catch (error) {
               console.error('Erreur activation:', error);
-              Alert.alert('❌ Erreur', 'Une erreur est survenue');
+              Alert.alert(' Erreur', 'Une erreur est survenue');
             } finally {
               setActionLoading(false);
             }
@@ -123,7 +136,7 @@ const ManageTontinesScreen = ({ navigation }) => {
 
   const confirmBlockTontine = async () => {
     if (!blockMotif.trim()) {
-      Alert.alert('⚠️ Attention', 'Veuillez indiquer le motif du blocage');
+      Alert.alert(' Attention', 'Veuillez indiquer le motif du blocage');
       return;
     }
 
@@ -137,14 +150,14 @@ const ManageTontinesScreen = ({ navigation }) => {
       if (result.success) {
         setShowBlockModal(false);
         setBlockMotif('');
-        Alert.alert('✅ Succès', 'Tontine bloquée avec succès');
+        Alert.alert(' Succès', 'Tontine bloquée avec succès');
         await loadTontines();
       } else {
-        Alert.alert('❌ Erreur', result.error?.message || 'Impossible de bloquer la tontine');
+        Alert.alert(' Erreur', result.error?.message || 'Impossible de bloquer la tontine');
       }
     } catch (error) {
       console.error('Erreur blocage:', error);
-      Alert.alert('❌ Erreur', 'Une erreur est survenue');
+      Alert.alert(' Erreur', 'Une erreur est survenue');
     } finally {
       setActionLoading(false);
     }
@@ -165,14 +178,14 @@ const ManageTontinesScreen = ({ navigation }) => {
               const result = await tontineService.unblockTontine(getTontineId(tontine));
               
               if (result.success) {
-                Alert.alert('✅ Succès', 'Tontine débloquée avec succès');
+                Alert.alert(' Succès', 'Tontine débloquée avec succès');
                 await loadTontines();
               } else {
-                Alert.alert('❌ Erreur', result.error?.message || 'Impossible de débloquer la tontine');
+                Alert.alert(' Erreur', result.error?.message || 'Impossible de débloquer la tontine');
               }
             } catch (error) {
               console.error('Erreur déblocage:', error);
-              Alert.alert('❌ Erreur', 'Une erreur est survenue');
+              Alert.alert(' Erreur', 'Une erreur est survenue');
             } finally {
               setActionLoading(false);
             }
@@ -185,7 +198,7 @@ const ManageTontinesScreen = ({ navigation }) => {
   const handleCloseTontine = (tontine) => {
     Alert.alert(
       'Clôturer la tontine',
-      `⚠️ ATTENTION !\n\nVoulez-vous clôturer définitivement "${tontine.nom}" ?\n\nCette action est irréversible.`,
+      ` ATTENTION !\n\nVoulez-vous clôturer définitivement "${tontine.nom}" ?\n\nCette action est irréversible.`,
       [
         { text: 'Annuler', style: 'cancel' },
         { 
@@ -197,14 +210,14 @@ const ManageTontinesScreen = ({ navigation }) => {
               const result = await tontineService.closeTontine(getTontineId(tontine));
               
               if (result.success) {
-                Alert.alert('✅ Succès', 'Tontine clôturée avec succès');
+                Alert.alert(' Succès', 'Tontine clôturée avec succès');
                 await loadTontines();
               } else {
-                Alert.alert('❌ Erreur', result.error?.message || 'Impossible de clôturer la tontine');
+                Alert.alert(' Erreur', result.error?.message || 'Impossible de clôturer la tontine');
               }
             } catch (error) {
               console.error('Erreur clôture:', error);
-              Alert.alert('❌ Erreur', 'Une erreur est survenue');
+              Alert.alert(' Erreur', 'Une erreur est survenue');
             } finally {
               setActionLoading(false);
             }

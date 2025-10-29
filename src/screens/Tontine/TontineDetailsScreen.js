@@ -34,27 +34,28 @@ const TontineDetailsScreen = ({ navigation, route }) => {
     loadData();
   }, []);
 
-  const loadData = async () => {
+const loadData = async () => {
   try {
     setLoading(true);
     
-    //  1. Vérifier le rôle de l'utilisateur connecté
+    // ✅ 1. Vérifier le rôle de l'utilisateur connecté
     const currentUser = user; // Depuis useAuthContext()
     
-    // . Choisir la bonne méthode selon le rôle
+    // ✅ 2. Choisir la bonne méthode selon le rôle
     let tontineResult;
     
-    if (currentUser.role === 'Administrateur') {
-      // Admin : Accès complet via /tontines/:tontineId
-      console.log(' Chargement en tant qu\'Admin');
+    // ✅ CORRECTION : Admin ET Trésorier ont accès complet
+    if (currentUser.role === 'admin' || currentUser.role === 'tresorier') {
+      // Admin/Trésorier : Accès complet via /tontines/:tontineId
+      console.log('🔓 Chargement en tant qu\'Admin/Trésorier');
       tontineResult = await tontineService.getTontineDetails(tontineId);
     } else {
-      // Membre/Trésorier : Accès limité via /tontines/:tontineId/details
+      // Membre : Accès limité via /tontines/:tontineId/details
       console.log('👤 Chargement en tant que Membre');
       tontineResult = await tontineService.getTontineDetailsForMember(tontineId);
     }
     
-    //  Charger les tirages (accessible à tous)
+    // ✅ Charger les tirages (accessible à tous)
     const tiragesResult = await tirageService.listeTiragesTontine(tontineId);
 
     if (tontineResult.success) {

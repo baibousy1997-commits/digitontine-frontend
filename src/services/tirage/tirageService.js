@@ -37,7 +37,14 @@ const tirageService = {
   async effectuerTirageAutomatique(tontineId) {
     return await post(API_CONFIG.ENDPOINTS.TIRAGES.AUTOMATIQUE(tontineId));
   },
-
+/**
+ * Effectuer un tirage automatique MODE TEST (sans validations)
+ * @param {string} tontineId - ID de la tontine
+ * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+ */
+async effectuerTirageAutomatiqueTest(tontineId) {
+  return await post(API_CONFIG.ENDPOINTS.TIRAGES.AUTOMATIQUE_TEST(tontineId));
+},
   /**
    * Effectuer un tirage manuel (Admin uniquement)
    * Désigner manuellement un bénéficiaire

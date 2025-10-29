@@ -147,7 +147,7 @@ apiClient.interceptors.response.use(
     // CAS 2 : Erreur réseau (pas de connexion)
     // ========================================
     if (!error.response) {
-      console.warn('🌐 NETWORK ERROR - Connexion internet instable');
+      console.warn('NETWORK ERROR - Connexion internet instable');
       
       return Promise.reject({
         code: API_CONFIG.ERROR_CODES.NETWORK_ERROR,

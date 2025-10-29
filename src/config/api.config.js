@@ -1,7 +1,7 @@
 // src/config/api.config.js
 /**
  * Configuration centralisée de l'API DigiTontine
- * ✅ UTILISE LES VARIABLES D'ENVIRONNEMENT (.env)
+ *  UTILISE LES VARIABLES D'ENVIRONNEMENT (.env)
  */
 
 // ========================================
@@ -40,7 +40,7 @@ const API_CONFIG = {
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'X-API-Key': API_KEY, // ✅ Clé API dans le header
+    'X-API-Key': API_KEY, // Clé API dans le header
   },
   
   // Endpoints par module
@@ -127,7 +127,9 @@ const API_CONFIG = {
       MANUEL: (tontineId) => `/tirages/tontine/${tontineId}/manuel`,
       ANNULER: (tirageId) => `/tirages/${tirageId}/annuler`,
       DETAILS: (tirageId) => `/tirages/${tirageId}`,
+      AUTOMATIQUE_TEST: (tontineId) => `/tirages/tontine/${tontineId}/automatique-test`,
       MES_GAINS: '/tirages/me/gains',
+      
     },
     
     // ========================================

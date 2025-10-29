@@ -31,45 +31,46 @@ const AddMembersScreen = ({ navigation, route }) => {
 
   const loadMembres = async () => {
     try {
-      console.log(' Début chargement des membres...');
+      console.log('Debut chargement des membres...');
       
       const result = await userService.listUsers({ 
-        role: 'Membre', 
+        role: 'membre', 
         isActive: true,
         limit: 100 
       });
 
-      console.log(' Résultat complet:', JSON.stringify(result, null, 2));
-      console.log(' Success:', result.success);
-      console.log(' Structure data:', result.data);
+      console.log('Resultat complet:', JSON.stringify(result, null, 2));
+      console.log('Success:', result.success);
+      console.log('Structure data:', result.data);
 
-      //  CORRECTION : Les membres sont dans result.data.data (pas result.data.data.users)
       if (result.success && result.data?.data) {
-        const membresList = Array.isArray(result.data.data) ? result.data.data : [];
-        console.log(' Nombre de membres:', membresList.length);
-        console.log(' Liste des membres:', membresList);
+        const membresList = Array.isArray(result.data.data?.data) 
+          ? result.data.data.data 
+          : (Array.isArray(result.data.data) ? result.data.data : []);
+        console.log('Nombre de membres:', membresList.length);
+        console.log('Liste des membres:', membresList);
         setMembres(membresList);
         
         if (membresList.length === 0) {
           Alert.alert(
             'Aucun membre',
-            'Aucun membre disponible. Créez d\'abord des comptes membres.',
+            'Aucun membre disponible. Creez d\'abord des comptes membres.',
             [{ text: 'OK' }]
           );
         }
       } else {
-        console.log(' Pas de membres trouvés');
-        console.log('Structure reçue:', result);
+        console.log('Pas de membres trouves');
+        console.log('Structure recue:', result);
         setMembres([]);
         Alert.alert('Info', 'Aucun membre disponible');
       }
     } catch (error) {
-      console.error(' Erreur chargement membres:', error);
+      console.error('Erreur chargement membres:', error);
       console.error('Stack:', error.stack);
       Alert.alert('Erreur', 'Une erreur est survenue lors du chargement');
       setMembres([]);
     } finally {
-      console.log(' Fin chargement - loading = false');
+      console.log('Fin chargement - loading = false');
       setLoading(false);
     }
   };
@@ -79,23 +80,16 @@ const AddMembersScreen = ({ navigation, route }) => {
       if (prev.includes(memberId)) {
         return prev.filter(id => id !== memberId);
       } else {
-        if (prev.length >= maxMembers) {
-          Alert.alert(
-            'Limite atteinte', 
-            `Vous ne pouvez ajouter que ${maxMembers} membres maximum`
-          );
-          return prev;
-        }
         return [...prev, memberId];
       }
     });
   };
 
   const handleAddMembers = async () => {
-    if (selectedMembers.length < minMembers) {
+    if (selectedMembers.length === 0) {
       Alert.alert(
-        'Membres insuffisants',
-        `Vous devez ajouter au moins ${minMembers} membres. Actuellement: ${selectedMembers.length}`
+        'Aucun membre selectionne',
+        'Vous devez selectionner au moins 1 membre'
       );
       return;
     }
@@ -103,14 +97,14 @@ const AddMembersScreen = ({ navigation, route }) => {
     setSubmitting(true);
 
     try {
-      console.log(' Ajout des membres:', selectedMembers);
+      console.log('Ajout des membres:', selectedMembers);
       const result = await tontineService.addMembers(tontineId, selectedMembers);
-      console.log(' Résultat ajout:', result);
+      console.log('Resultat ajout:', result);
 
       if (result.success) {
         Alert.alert(
-          'Succès',
-          `${selectedMembers.length} membre(s) ajouté(s) à la tontine`,
+          'Succes',
+          `${selectedMembers.length} membre(s) ajoute(s) a la tontine`,
           [
             {
               text: 'OK',
@@ -120,11 +114,11 @@ const AddMembersScreen = ({ navigation, route }) => {
         );
       } else {
         const errorMsg = result.error?.message || 'Impossible d\'ajouter les membres';
-        console.error(' Erreur ajout:', result.error);
+        console.error('Erreur ajout:', result.error);
         Alert.alert('Erreur', errorMsg);
       }
     } catch (error) {
-      console.error(' Exception ajout membres:', error);
+      console.error('Exception ajout membres:', error);
       Alert.alert('Erreur', 'Une erreur est survenue lors de l\'ajout');
     } finally {
       setSubmitting(false);
@@ -183,11 +177,11 @@ const AddMembersScreen = ({ navigation, route }) => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Ajouter des membres</Text>
         <Text style={styles.subtitle}>
-          Invitez entre {minMembers} et {maxMembers} membres à rejoindre "{tontineName}"
+          Selectionnez les membres a ajouter a "{tontineName}"
         </Text>
 
         <Text style={styles.selectionInfo}>
-          {selectedMembers.length} / {minMembers}-{maxMembers} membres sélectionnés
+          {selectedMembers.length} membre(s) selectionne(s)
         </Text>
 
         <View style={styles.searchContainer}>
@@ -212,11 +206,11 @@ const AddMembersScreen = ({ navigation, route }) => {
           <View style={styles.emptyStateContainer}>
             <Ionicons name="people-outline" size={80} color="#ccc" />
             <Text style={styles.emptyStateText}>
-              {searchText ? 'Aucun membre trouvé' : 'Aucun membre disponible'}
+              {searchText ? 'Aucun membre trouve' : 'Aucun membre disponible'}
             </Text>
             {!searchText && membres.length === 0 && (
               <Text style={[styles.emptyStateText, { fontSize: 14, marginTop: 10 }]}>
-                Créez d'abord des comptes membres
+                Creez d'abord des comptes membres
               </Text>
             )}
           </View>
@@ -234,16 +228,16 @@ const AddMembersScreen = ({ navigation, route }) => {
         <TouchableOpacity 
           style={[
             styles.continueButton,
-            (selectedMembers.length < minMembers || submitting) && styles.continueButtonDisabled
+            (selectedMembers.length === 0 || submitting) && styles.continueButtonDisabled
           ]}
           onPress={handleAddMembers}
-          disabled={selectedMembers.length < minMembers || submitting}
+          disabled={selectedMembers.length === 0 || submitting}
         >
           {submitting ? (
             <ActivityIndicator color="#000" />
           ) : (
             <Text style={styles.continueButtonText}>
-              Ajouter les membres ({selectedMembers.length}/{minMembers}-{maxMembers})
+              Ajouter {selectedMembers.length} membre(s)
             </Text>
           )}
         </TouchableOpacity>

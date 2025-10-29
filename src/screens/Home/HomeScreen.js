@@ -17,6 +17,7 @@ import { useAuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import dashboardService from '../../services/dashboard/dashboardService';
 import tontineService from '../../services/tontine/tontineService';
+import authService from '../../services/auth/authService';
 import Colors from '../../constants/colors';
 import HomeStyles from '../../styles/HomeStyles';
 
@@ -27,6 +28,7 @@ const HomeScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [mesTontines, setMesTontines] = useState([]);
+  const [userData, setUserData] = useState(null);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
@@ -34,107 +36,140 @@ const HomeScreen = ({ navigation }) => {
     });
   }, [navigation]);
 
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadDashboard();
-    }, [])
-  );
-
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
-      const role = user?.role || 'Membre';
-      
-      console.log('HOME - Role:', role);
-      
-      // 1. Charger le dashboard
-      const dashResult = await dashboardService.getDashboardByRole(role);
-      if (dashResult.success) {
-        setDashboardData(dashResult.data?.data);
-      }
-
-      // 2. Charger les tontines selon le role
-      if (role === 'Admin' || role === 'Administrateur') {
-        console.log('ADMIN - Chargement de TOUTES les tontines...');
-        const tontinesResult = await tontineService.listTontines({ limit: 100 });
-        
-        if (tontinesResult.success) {
-          let tontinesList = [];
-          
-          if (Array.isArray(tontinesResult.data?.data?.data)) {
-            tontinesList = tontinesResult.data.data.data;
-          } else if (Array.isArray(tontinesResult.data?.data)) {
-            tontinesList = tontinesResult.data.data;
-          } else if (Array.isArray(tontinesResult.data)) {
-            tontinesList = tontinesResult.data;
-          }
-          
-          console.log('Admin tontines chargees:', tontinesList.length);
-          setMesTontines(tontinesList);
-        } else {
-          console.error('Erreur:', tontinesResult.error);
-          setMesTontines([]);
-        }
-      } else {
-        console.log('MEMBRE - Chargement de MES tontines...');
-        const tontinesResult = await tontineService.mesTontines();
-        
-        if (tontinesResult.success) {
-          const tontinesList = tontinesResult.data?.data?.tontines || [];
-          console.log('Mes tontines chargees:', tontinesList.length);
-          setMesTontines(tontinesList);
-        } else {
-          console.error('Erreur:', tontinesResult.error);
-          setMesTontines([]);
-        }
-      }
-    } catch (error) {
-      console.error('Erreur chargement dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
+  //  NOUVELLE FONCTION : Normaliser le rôle pour toutes les comparaisons
+  const normalizeRole = (role) => {
+    if (!role) return 'membre';
+    
+    const roleMap = {
+      'admin': 'admin',
+      'Admin': 'admin',
+      'ADMIN': 'admin',
+      'administrateur': 'admin',
+      'Administrateur': 'admin',
+      'ADMINISTRATEUR': 'admin',
+      'tresorier': 'tresorier',
+      'Tresorier': 'tresorier',
+      'TRESORIER': 'tresorier',
+      'trésorier': 'tresorier',
+      'Trésorier': 'tresorier',
+      'membre': 'membre',
+      'Membre': 'membre',
+      'MEMBRE': 'membre',
+    };
+    
+    return roleMap[role] || role.toLowerCase();
   };
+
+  useEffect(() => {
+  loadDashboard();
+  loadUserProfile(); // 
+}, []);
+
+useFocusEffect(
+  useCallback(() => {
+    loadDashboard();
+    loadUserProfile(); // 
+  }, [])
+);
+
+ const loadDashboard = async () => {
+  try {
+    setLoading(true);
+    const rawRole = user?.role || 'membre';
+    const normalizedRole = normalizeRole(rawRole);
+    
+    console.log(' HOME - Rôle brut:', rawRole, '→ Normalisé:', normalizedRole);
+    
+    // 1. Charger le dashboard
+    const dashResult = await dashboardService.getDashboardByRole(rawRole);
+    if (dashResult.success) {
+      console.log(' Dashboard chargé:', dashResult.data?.data);
+      setDashboardData(dashResult.data?.data);
+      
+      // ✅ NOUVEAU : Récupérer les tontines du dashboard
+      let tontinesList = [];
+      if (normalizedRole === 'admin') {
+        tontinesList = dashResult.data?.data?.tontines?.mesTontines || [];
+      } else if (normalizedRole === 'tresorier') {
+        tontinesList = dashResult.data?.data?.mesTontines || [];
+      } else {
+        tontinesList = dashResult.data?.data?.tontines || [];
+      }
+      
+      console.log(' Tontines chargées:', tontinesList.length);
+      setMesTontines(tontinesList);
+    } else {
+      console.error(' Erreur dashboard:', dashResult.error);
+      setMesTontines([]);
+    }
+    
+  } catch (error) {
+    console.error(' Erreur chargement dashboard:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadDashboard();
     setRefreshing(false);
   };
+  const loadUserProfile = async () => {
+  try {
+    const result = await authService.getMe();
+    if (result.success && result.data) {
+      console.log(' User chargé dans HomeScreen:', result.data);
+      setUserData(result.data);
+    }
+  } catch (error) {
+    console.error(' Erreur chargement user:', error);
+  }
+};
 
-  const userName = user?.prenom || 'Utilisateur';
-  const userRole = user?.role || 'Membre';
+  const rawRole = user?.role || 'membre';
+  const userRole = normalizeRole(rawRole); //  Utiliser le rôle normalisé partout
 
+  //  FONCTION CORRIGÉE : Récupérer les KPIs selon le rôle normalisé
   const getKPIs = () => {
-    if (!dashboardData) return null;
+    if (!dashboardData) {
+      console.log(' Pas de dashboardData disponible');
+      return null;
+    }
 
-    if (userRole === 'Admin' || userRole === 'Administrateur') {
-      return {
+    console.log(' getKPIs - Rôle normalisé:', userRole);
+    console.log(' dashboardData:', JSON.stringify(dashboardData, null, 2));
+
+    if (userRole === 'admin') {
+      const kpis = {
         totalUtilisateurs: dashboardData.utilisateurs?.total || 0,
         utilisateursActifs: dashboardData.utilisateurs?.actifs || 0,
         totalTontines: dashboardData.tontines?.total || 0,
         tontinesActives: dashboardData.tontines?.actives || 0,
       };
+      console.log(' KPIs Admin:', kpis);
+      return kpis;
     }
 
-    if (userRole === 'Tresorier') {
-      return {
+    if (userRole === 'tresorier') {
+      const kpis = {
         montantTotalCollecte: dashboardData.kpis?.montantTotalCollecte || 0,
         montantTotalDistribue: dashboardData.kpis?.montantTotalDistribue || 0,
         soldeDisponible: dashboardData.kpis?.soldeDisponible || 0,
         transactionsEnAttente: dashboardData.kpis?.transactionsEnAttente || 0,
       };
+      console.log(' KPIs Trésorier:', kpis);
+      return kpis;
     }
 
-    return {
+    const kpis = {
       tontinesActives: dashboardData.resume?.tontinesActives || 0,
       totalCotise: dashboardData.resume?.totalCotise || 0,
       totalGagne: dashboardData.resume?.totalGagne || 0,
       retards: dashboardData.resume?.retards || 0,
     };
+    console.log(' KPIs Membre:', kpis);
+    return kpis;
   };
 
   const kpis = getKPIs();
@@ -143,16 +178,16 @@ const HomeScreen = ({ navigation }) => {
     return (
       <SafeAreaView style={[HomeStyles.safeArea, { backgroundColor: theme.background }]}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={theme.primaryDark} />
+          <ActivityIndicator size="large" color={Colors.primaryDark} />
           <Text style={{ color: theme.text, marginTop: 10 }}>Chargement...</Text>
         </View>
       </SafeAreaView>
     );
   }
-
+const userName = userData?.prenom || user?.prenom || 'Utilisateur';
   return (
     <SafeAreaView style={[HomeStyles.safeArea, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.headerBackground} />
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
       <ScrollView
         contentContainerStyle={HomeStyles.scrollContainer}
         showsVerticalScrollIndicator={false}
@@ -160,7 +195,8 @@ const HomeScreen = ({ navigation }) => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={[HomeStyles.headerContainer, { backgroundColor: theme.headerBackground }]}>
+        {/* Header */}
+        <View style={[HomeStyles.headerContainer, { backgroundColor: Colors.primaryDark }]}>
           <Text style={HomeStyles.welcomeText}>Bienvenue {userName},</Text>
           <TouchableOpacity
             style={HomeStyles.profileButton}
@@ -173,9 +209,10 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
+        {/* Section Tontines */}
         <View style={HomeStyles.tontineSection}>
           <Text style={HomeStyles.tontineTitle}>
-            {userRole === 'Admin' || userRole === 'Administrateur' ? 'Toutes les tontines' : 'Mes tontines'} ({mesTontines.length})
+            {userRole === 'admin' ? 'Toutes les tontines' : 'Mes tontines'} ({mesTontines.length})
           </Text>
           <View style={HomeStyles.tontineList}>
             {mesTontines.length > 0 ? (
@@ -199,7 +236,7 @@ const HomeScreen = ({ navigation }) => {
                   key={i} 
                   style={HomeStyles.tontineCard}
                   onPress={() => {
-                    if (userRole === 'Admin' || userRole === 'Administrateur') {
+                    if (userRole === 'admin') {
                       navigation.navigate('CreateTontine');
                     } else {
                       navigation.navigate('MyTontines');
@@ -213,23 +250,25 @@ const HomeScreen = ({ navigation }) => {
           </View>
         </View>
 
+        {/* En-tête Aperçu */}
         <View style={HomeStyles.overviewHeader}>
-          <Text style={[HomeStyles.overviewTitle, { color: theme.text }]}>Apercu</Text>
+          <Text style={[HomeStyles.overviewTitle, { color: theme.text }]}>Aperçu</Text>
           <Text style={[HomeStyles.dateText, { color: theme.placeholder }]}>
             {new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
           </Text>
         </View>
 
-        {(userRole === 'Admin' || userRole === 'Administrateur') && (
+        {/*  ADMIN Dashboard Card */}
+        {userRole === 'admin' && (
           <View style={HomeStyles.cardContainer}>
             <TouchableOpacity
-              style={[HomeStyles.cotisationCard, { backgroundColor: theme.primaryDark }]}
+              style={[HomeStyles.cotisationCard, { backgroundColor: Colors.primaryDark }]}
               onPress={() => navigation.navigate('DashboardAdmin')}
             >
               <View style={HomeStyles.cotisationLeft}>
                 <Text style={HomeStyles.cotisationTitle}>Tableau de bord Admin</Text>
                 <Text style={HomeStyles.cotisationSubtitle}>
-                  {kpis?.totalUtilisateurs || 0} utilisateurs - {kpis?.tontinesActives || 0} tontines actives
+                  {kpis?.totalUtilisateurs || 0} utilisateurs • {kpis?.tontinesActives || 0} tontines actives
                 </Text>
               </View>
               <View style={HomeStyles.cotisationRight}>
@@ -240,7 +279,7 @@ const HomeScreen = ({ navigation }) => {
                   style={HomeStyles.cotisationIcon}
                 />
                 <View style={HomeStyles.detailsButton}>
-                  <Text style={HomeStyles.detailsText}>Voir les details</Text>
+                  <Text style={HomeStyles.detailsText}>Voir les détails</Text>
                   <Ionicons name="chevron-forward" size={20} color={Colors.textLight} />
                 </View>
               </View>
@@ -248,14 +287,15 @@ const HomeScreen = ({ navigation }) => {
           </View>
         )}
 
-        {userRole === 'Tresorier' && (
+        {/*  TRESORIER Dashboard Card */}
+        {userRole === 'tresorier' && (
           <View style={HomeStyles.cardContainer}>
             <TouchableOpacity
               style={[HomeStyles.cotisationCard, { backgroundColor: Colors.accentGreen }]}
               onPress={() => navigation.navigate('DashboardTresorier')}
             >
               <View style={HomeStyles.cotisationLeft}>
-                <Text style={HomeStyles.cotisationTitle}>Tableau de bord Tresorier</Text>
+                <Text style={HomeStyles.cotisationTitle}>Tableau de bord Trésorier</Text>
                 <Text style={HomeStyles.cotisationSubtitle}>
                   {kpis?.transactionsEnAttente || 0} transactions en attente
                 </Text>
@@ -268,7 +308,7 @@ const HomeScreen = ({ navigation }) => {
                   style={HomeStyles.cotisationIcon}
                 />
                 <View style={HomeStyles.detailsButton}>
-                  <Text style={HomeStyles.detailsText}>Voir les details</Text>
+                  <Text style={HomeStyles.detailsText}>Voir les détails</Text>
                   <Ionicons name="chevron-forward" size={20} color={Colors.textLight} />
                 </View>
               </View>
@@ -276,10 +316,11 @@ const HomeScreen = ({ navigation }) => {
           </View>
         )}
 
-        {userRole === 'Membre' && (
+        {/*  MEMBRE Dashboard Card */}
+        {userRole === 'membre' && (
           <View style={HomeStyles.cardContainer}>
             <TouchableOpacity
-              style={[HomeStyles.cotisationCard, { backgroundColor: theme.primaryDark }]}
+              style={[HomeStyles.cotisationCard, { backgroundColor: Colors.primaryDark }]}
               onPress={() => navigation.navigate('DashboardMembre')}
             >
               <View style={HomeStyles.cotisationLeft}>
@@ -287,7 +328,7 @@ const HomeScreen = ({ navigation }) => {
                 <Text style={HomeStyles.cotisationSubtitle}>
                   {(kpis?.retards || 0) > 0 
                     ? kpis.retards + ' cotisation(s) en retard' 
-                    : "Vous etes a jour"}
+                    : "Vous êtes à jour"}
                 </Text>
               </View>
               <View style={HomeStyles.cotisationRight}>
@@ -298,7 +339,7 @@ const HomeScreen = ({ navigation }) => {
                   style={HomeStyles.cotisationIcon}
                 />
                 <View style={HomeStyles.detailsButton}>
-                  <Text style={HomeStyles.detailsText}>Voir les details</Text>
+                  <Text style={HomeStyles.detailsText}>Voir les détails</Text>
                   <Ionicons name="chevron-forward" size={20} color={Colors.textLight} />
                 </View>
               </View>
@@ -306,7 +347,8 @@ const HomeScreen = ({ navigation }) => {
           </View>
         )}
 
-        {(userRole === 'Admin' || userRole === 'Administrateur') && (
+        {/*  Carte Créer des utilisateurs (Admin uniquement) */}
+        {userRole === 'admin' && (
           <View style={HomeStyles.cardContainer}>
             <TouchableOpacity
               style={[HomeStyles.userCard, { backgroundColor: theme.surface }]}
@@ -314,10 +356,10 @@ const HomeScreen = ({ navigation }) => {
             >
               <View style={HomeStyles.userCardLeft}>
                 <Text style={[HomeStyles.userCardTitle, { color: theme.text }]}>
-                  Creer des utilisateurs
+                  Créer des utilisateurs
                 </Text>
                 <Text style={[HomeStyles.userCardSubtitle, { color: theme.placeholder }]}>
-                  Ajouter facilement de nouveaux membres a votre tontine.
+                  Ajouter facilement de nouveaux membres à votre tontine.
                 </Text>
               </View>
               <View style={HomeStyles.userCardRight}>
@@ -339,6 +381,7 @@ const HomeScreen = ({ navigation }) => {
         <View style={{ height: 40 }} />
       </ScrollView>
 
+      {/* Bottom Navigation */}
       <View style={[HomeStyles.bottomNav, { backgroundColor: theme.bottomNavBackground }]}>
         <TouchableOpacity style={HomeStyles.navItem} onPress={() => navigation.navigate('Accueil')}>
           <Ionicons name="home" size={24} color={Colors.primaryDark} />

@@ -20,16 +20,32 @@ const [formData, setFormData] = useState({
   dateDebut: '',
   nombreMembresMin: '3',
   nombreMembresMax: '50',
-  tauxPenalite: '5',
-  delaiGrace: '2',
+  tauxPenalite: '',
+  delaiGrace: '',
   tresorierAssigneId: '',
 });
 
-  const [dateDisplay, setDateDisplay] = useState({
-    day: '1',
-    month: 'janvier',
-    year: '2025',
-  });
+// Au début du composant, avant le useState
+const getCurrentDate = () => {
+  const today = new Date();
+  const day = today.getDate();
+  const monthIndex = today.getMonth();
+  const year = today.getFullYear();
+  
+  const months = [
+    'janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'
+  ];
+  
+  return {
+    day: day.toString(),
+    month: months[monthIndex],
+    year: year.toString()
+  };
+};
+
+// Puis dans le useState
+const [dateDisplay, setDateDisplay] = useState(getCurrentDate());
 
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -60,7 +76,7 @@ const loadTresoriers = async () => {
     console.log('Début chargement des trésoriers...');
     
     const result = await userService.listUsers({ 
-      role: 'Tresorier',
+      role: 'tresorier',
       isActive: true,
       limit: 100 
     });
@@ -70,10 +86,11 @@ const loadTresoriers = async () => {
     console.log('Structure data:', result.data);
     
     // CORRECTION CLÉ : result.data.data.data contient le tableau
-    if (result.success && result.data?.data?.data) {
-      const tresoriersList = Array.isArray(result.data.data.data) 
-        ? result.data.data.data 
-        : [];
+   //  NOUVEAU CODE
+if (result.success && result.data?.data) {
+  const tresoriersList = Array.isArray(result.data.data?.data) 
+    ? result.data.data.data 
+    : (Array.isArray(result.data.data) ? result.data.data : []);
 
       console.log('Nombre de trésoriers:', tresoriersList.length);
       console.log('Liste des trésoriers:', tresoriersList);
