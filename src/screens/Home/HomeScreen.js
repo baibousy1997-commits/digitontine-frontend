@@ -86,7 +86,7 @@ useFocusEffect(
       console.log(' Dashboard chargé:', dashResult.data?.data);
       setDashboardData(dashResult.data?.data);
       
-      // ✅ NOUVEAU : Récupérer les tontines du dashboard
+      //  NOUVEAU : Récupérer les tontines du dashboard
       let tontinesList = [];
       if (normalizedRole === 'admin') {
         tontinesList = dashResult.data?.data?.tontines?.mesTontines || [];
@@ -393,12 +393,14 @@ const userName = userData?.prenom || user?.prenom || 'Utilisateur';
           <Text style={[HomeStyles.navTextInactive, { color: theme.placeholder }]}>Wallet</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={HomeStyles.navCenterButton}
-          onPress={() => navigation.navigate('ChooseTontineAction')}
-        >
-          <Ionicons name="add" size={40} color={Colors.textLight} />
-        </TouchableOpacity>
+        {userRole === 'admin' && (
+  <TouchableOpacity
+    style={HomeStyles.navCenterButton}
+    onPress={() => navigation.navigate('ChooseTontineAction')}
+  >
+    <Ionicons name="add" size={40} color={Colors.textLight} />
+  </TouchableOpacity>
+)}
 
         <TouchableOpacity
           style={HomeStyles.navItem}
