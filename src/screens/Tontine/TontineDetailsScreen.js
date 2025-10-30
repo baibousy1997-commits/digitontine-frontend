@@ -9,16 +9,14 @@ import {
   RefreshControl,
   StyleSheet,
   StatusBar,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuthContext } from '../../context/AuthContext';
 import tontineService from '../../services/tontine/tontineService';
 import tirageService from '../../services/tirage/tirageService';
 import Colors from '../../constants/colors';
- 
 
 const TontineDetailsScreen = ({ navigation, route }) => {
   const { tontineId } = route.params;
@@ -28,49 +26,49 @@ const TontineDetailsScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [tontine, setTontine] = useState(null);
   const [tirages, setTirages] = useState([]);
-  const [optInLoading, setOptInLoading] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
-const loadData = async () => {
-  try {
-    setLoading(true);
-    
-    // ✅ 1. Vérifier le rôle de l'utilisateur connecté
-    const currentUser = user; // Depuis useAuthContext()
-    
-    // ✅ 2. Choisir la bonne méthode selon le rôle
-    let tontineResult;
-    
-    // ✅ CORRECTION : Admin ET Trésorier ont accès complet
-    if (currentUser.role === 'admin' || currentUser.role === 'tresorier') {
-      // Admin/Trésorier : Accès complet via /tontines/:tontineId
-      console.log('🔓 Chargement en tant qu\'Admin/Trésorier');
-      tontineResult = await tontineService.getTontineDetails(tontineId);
-    } else {
-      // Membre : Accès limité via /tontines/:tontineId/details
-      console.log('👤 Chargement en tant que Membre');
-      tontineResult = await tontineService.getTontineDetailsForMember(tontineId);
-    }
-    
-    // ✅ Charger les tirages (accessible à tous)
-    const tiragesResult = await tirageService.listeTiragesTontine(tontineId);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      
+      const currentUser = user;
+      let tontineResult;
+      
+      if (currentUser.role === 'admin' || currentUser.role === 'tresorier') {
+        console.log('Chargement en tant qu\'Admin/Tresorier');
+        tontineResult = await tontineService.getTontineDetails(tontineId);
+      } else {
+        console.log('Chargement en tant que Membre');
+        tontineResult = await tontineService.getTontineDetailsForMember(tontineId);
+      }
+      
+      const tiragesResult = await tirageService.listeTiragesTontine(tontineId);
 
-    if (tontineResult.success) {
-      setTontine(tontineResult.data?.data?.tontine);
+      if (tontineResult.success) {
+        const tontineData = tontineResult.data?.data?.tontine;
+        
+        // CORRECTION : Calculer le nombre de membres reel
+        if (tontineData && tontineData.membres) {
+          tontineData.nombreMembres = tontineData.membres.length;
+          console.log('Nombre de membres calcule:', tontineData.nombreMembres);
+        }
+        
+        setTontine(tontineData);
+      }
+      
+      if (tiragesResult.success) {
+        setTirages(tiragesResult.data?.data || []);
+      }
+    } catch (error) {
+      console.error('Erreur chargement details:', error);
+    } finally {
+      setLoading(false);
     }
-    
-    if (tiragesResult.success) {
-      setTirages(tiragesResult.data?.data || []);
-    }
-  } catch (error) {
-    console.error('Erreur chargement details:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -78,33 +76,38 @@ const loadData = async () => {
     setRefreshing(false);
   };
 
-  const handleOptIn = async (participe) => {
-    setOptInLoading(true);
-    try {
-      const result = await tontineService.optInForTirage(tontineId, participe);
-      
-      if (result.success) {
-        Alert.alert(
-          'Succes',
-          participe 
-            ? 'Vous participerez au prochain tirage' 
-            : 'Vous ne participerez pas au prochain tirage'
-        );
-        await loadData();
-      } else {
-        Alert.alert('Erreur', result.error?.message || 'Operation echouee');
-      }
-    } catch (error) {
-      console.error('Erreur opt-in:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
-    } finally {
-      setOptInLoading(false);
+  // FONCTION HELPER : Extraire les infos du membre de facon robuste
+  const getMemberInfo = (membre) => {
+    // Cas 1: Backend a envoye directement nom/email dans membre
+    if (membre.nom && membre.email) {
+      return {
+        nom: membre.nom || 'Utilisateur',
+        email: membre.email || 'N/A',
+        initial: (membre.nom?.[0] || 'U').toUpperCase(),
+      };
     }
+
+    // Cas 2: userId est un objet (populated)
+    if (membre.userId && typeof membre.userId === 'object') {
+      const userObj = membre.userId;
+      return {
+        nom: userObj.nom || userObj.nomComplet || 'Utilisateur',
+        email: userObj.email || 'N/A',
+        initial: (userObj.nom?.[0] || userObj.prenom?.[0] || 'U').toUpperCase(),
+      };
+    }
+
+    // Cas 3: Fallback
+    return {
+      nom: 'Membre',
+      email: 'N/A',
+      initial: 'M',
+    };
   };
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={Colors.primaryDark} />
       </View>
     );
@@ -112,15 +115,26 @@ const loadData = async () => {
 
   if (!tontine) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ color: theme.text }}>Tontine introuvable</Text>
       </View>
     );
   }
 
-  const isMembre = tontine.membres?.some(m => m.userId === user?.id);
-  const monMembre = tontine.membres?.find(m => m.userId === user?.id);
+  const isMembre = tontine.membres?.some(m => {
+    const membreUserId = m.userId?._id || m.userId;
+    return membreUserId?.toString() === user?.id?.toString();
+  });
+  
+  const monMembre = tontine.membres?.find(m => {
+    const membreUserId = m.userId?._id || m.userId;
+    return membreUserId?.toString() === user?.id?.toString();
+  });
+  
   const aiDejaGagne = monMembre?.aGagne || false;
+
+  // CORRECTION : Calculer le nombre reel de membres
+  const nombreMembresReel = tontine.membres?.length || 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -140,6 +154,7 @@ const loadData = async () => {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {/* Card principale */}
         <View style={[styles.card, { backgroundColor: theme.surface }]}>
           <Text style={[styles.tontineName, { color: theme.text }]}>
             {tontine.nom}
@@ -153,6 +168,7 @@ const loadData = async () => {
           </View>
         </View>
 
+        {/* Informations */}
         <View style={[styles.card, { backgroundColor: theme.surface }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
             Informations
@@ -178,7 +194,7 @@ const loadData = async () => {
               Membres
             </Text>
             <Text style={[styles.infoValue, { color: theme.text }]}>
-              {tontine.nombreMembres} / {tontine.nombreMembresMax}
+              {nombreMembresReel}
             </Text>
           </View>
           <View style={styles.infoRow}>
@@ -191,89 +207,85 @@ const loadData = async () => {
           </View>
         </View>
 
-        {isMembre && !aiDejaGagne && tontine.statut === 'Active' && (
-          <View style={[styles.card, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Participation au tirage
-            </Text>
-            <Text style={[styles.optInDescription, { color: theme.textSecondary }]}>
-              Souhaitez-vous participer au prochain tirage ?
-            </Text>
-            
-            <View style={styles.optInButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.optInButton,
-                  { backgroundColor: Colors.accentGreen },
-                  optInLoading && { opacity: 0.5 }
-                ]}
-                onPress={() => handleOptIn(true)}
-                disabled={optInLoading}
-              >
-                <Text style={styles.optInButtonText}>Oui, je participe</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.optInButton,
-                  { backgroundColor: Colors.danger },
-                  optInLoading && { opacity: 0.5 }
-                ]}
-                onPress={() => handleOptIn(false)}
-                disabled={optInLoading}
-              >
-                <Text style={styles.optInButtonText}>Non, pas maintenant</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
+        {/* CORRECTION LISTE MEMBRES */}
         <View style={[styles.card, { backgroundColor: theme.surface }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Membres ({tontine.membres?.length || 0})
+            Membres ({nombreMembresReel})
           </Text>
-          {tontine.membres?.map((membre, index) => (
-            <View key={index} style={styles.membreRow}>
-              <View style={styles.membreAvatar}>
-                <Text style={styles.membreInitials}>
-                  {membre.nom?.[0] || 'M'}
-                </Text>
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={[styles.membreName, { color: theme.text }]}>
-                  {membre.nom}
-                </Text>
-                <Text style={[styles.membreEmail, { color: theme.textSecondary }]}>
-                  {membre.email}
-                </Text>
-              </View>
-              {membre.aGagne && (
-                <Ionicons name="trophy" size={20} color={Colors.accentYellow} />
-              )}
-            </View>
-          ))}
+          {tontine.membres && tontine.membres.length > 0 ? (
+            tontine.membres.map((membre, index) => {
+              const membreInfo = getMemberInfo(membre);
+              
+              return (
+                <View key={index} style={styles.membreRow}>
+                  <View style={styles.membreAvatar}>
+                    <Text style={styles.membreInitials}>
+                      {membreInfo.initial}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.membreName, { color: theme.text }]}>
+                      {membreInfo.nom}
+                    </Text>
+                    <Text style={[styles.membreEmail, { color: theme.textSecondary }]}>
+                      {membreInfo.email}
+                    </Text>
+                  </View>
+                  {membre.aGagne && (
+                    <Ionicons name="trophy" size={20} color={Colors.accentYellow} />
+                  )}
+                </View>
+              );
+            })
+          ) : (
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+              Aucun membre pour le moment
+            </Text>
+          )}
         </View>
 
+        {/* CORRECTION Historique tirages */}
         {tirages.length > 0 && (
           <View style={[styles.card, { backgroundColor: theme.surface }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
               Historique tirages ({tirages.length})
             </Text>
-            {tirages.map((tirage, index) => (
-              <View key={index} style={styles.tirageRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.tirageBeneficiaire, { color: theme.text }]}>
-                    Gagnant: {tirage.beneficiaire?.nom || 'N/A'}
-                  </Text>
-                  <Text style={[styles.tirageDate, { color: theme.textSecondary }]}>
-                    {new Date(tirage.dateEffective).toLocaleDateString('fr-FR')}
+            {tirages.map((tirage, index) => {
+              // Extraire le nom du beneficiaire de facon robuste
+              const getBeneficiaireName = () => {
+                if (tirage.beneficiaireId) {
+                  if (typeof tirage.beneficiaireId === 'object') {
+                    return tirage.beneficiaireId.nomComplet || 
+                           `${tirage.beneficiaireId.prenom || ''} ${tirage.beneficiaireId.nom || ''}`.trim() ||
+                           'Beneficiaire';
+                  }
+                }
+                if (tirage.beneficiaire) {
+                  if (typeof tirage.beneficiaire === 'object') {
+                    return tirage.beneficiaire.nomComplet || 
+                           `${tirage.beneficiaire.prenom || ''} ${tirage.beneficiaire.nom || ''}`.trim() ||
+                           'Beneficiaire';
+                  }
+                }
+                return 'Beneficiaire inconnu';
+              };
+
+              return (
+                <View key={index} style={styles.tirageRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.tirageBeneficiaire, { color: theme.text }]}>
+                      Gagnant: {getBeneficiaireName()}
+                    </Text>
+                    <Text style={[styles.tirageDate, { color: theme.textSecondary }]}>
+                      {new Date(tirage.dateTirage || tirage.dateEffective).toLocaleDateString('fr-FR')}
+                    </Text>
+                  </View>
+                  <Text style={[styles.tirageMontant, { color: Colors.accentGreen }]}>
+                    {(tirage.montantDistribue || tirage.montant || 0).toLocaleString()} FCFA
                   </Text>
                 </View>
-                <Text style={[styles.tirageMontant, { color: Colors.accentGreen }]}>
-                  {tirage.montant?.toLocaleString()} FCFA
-                </Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -292,7 +304,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
-headerTitle: { fontSize: 20, fontWeight: '700' },
+  headerTitle: { fontSize: 20, fontWeight: '700' },
   scrollContent: { padding: 20 },
   card: {
     padding: 20,
@@ -323,14 +335,6 @@ headerTitle: { fontSize: 20, fontWeight: '700' },
   },
   infoLabel: { fontSize: 14 },
   infoValue: { fontSize: 14, fontWeight: '600' },
-  optInDescription: { fontSize: 14, marginBottom: 20 },
-  optInButtons: { gap: 10 },
-  optInButton: {
-    paddingVertical: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  optInButtonText: { fontSize: 16, fontWeight: '600', color: '#fff' },
   membreRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -349,6 +353,7 @@ headerTitle: { fontSize: 20, fontWeight: '700' },
   membreInitials: { fontSize: 16, fontWeight: '600', color: '#fff' },
   membreName: { fontSize: 15, fontWeight: '600' },
   membreEmail: { fontSize: 13, marginTop: 2 },
+  emptyText: { fontSize: 14, textAlign: 'center', marginVertical: 20 },
   tirageRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

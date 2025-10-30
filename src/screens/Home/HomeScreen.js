@@ -16,8 +16,8 @@ import PropTypes from 'prop-types';
 import { useAuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import dashboardService from '../../services/dashboard/dashboardService';
-import tontineService from '../../services/tontine/tontineService';
 import authService from '../../services/auth/authService';
+import notificationService from '../../services/notification/notificationService';
 import Colors from '../../constants/colors';
 import HomeStyles from '../../styles/HomeStyles';
 
@@ -29,6 +29,7 @@ const HomeScreen = ({ navigation }) => {
   const [dashboardData, setDashboardData] = useState(null);
   const [mesTontines, setMesTontines] = useState([]);
   const [userData, setUserData] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
@@ -36,7 +37,6 @@ const HomeScreen = ({ navigation }) => {
     });
   }, [navigation]);
 
-  //  NOUVELLE FONCTION : Normaliser le rôle pour toutes les comparaisons
   const normalizeRole = (role) => {
     if (!role) return 'membre';
     
@@ -61,115 +61,138 @@ const HomeScreen = ({ navigation }) => {
   };
 
   useEffect(() => {
-  loadDashboard();
-  loadUserProfile(); // 
-}, []);
-
-useFocusEffect(
-  useCallback(() => {
     loadDashboard();
-    loadUserProfile(); // 
-  }, [])
-);
+    loadUserProfile();
+    loadUnreadNotifications();
+  }, []);
 
- const loadDashboard = async () => {
-  try {
-    setLoading(true);
-    const rawRole = user?.role || 'membre';
-    const normalizedRole = normalizeRole(rawRole);
-    
-    console.log(' HOME - Rôle brut:', rawRole, '→ Normalisé:', normalizedRole);
-    
-    // 1. Charger le dashboard
-    const dashResult = await dashboardService.getDashboardByRole(rawRole);
-    if (dashResult.success) {
-      console.log(' Dashboard chargé:', dashResult.data?.data);
-      setDashboardData(dashResult.data?.data);
+  useFocusEffect(
+    useCallback(() => {
+      console.log('HomeScreen - Focus event - Rechargement...');
+      loadDashboard();
+      loadUserProfile();
+      loadUnreadNotifications();
+    }, [])
+  );
+
+  const loadUnreadNotifications = async () => {
+    try {
+      console.log('[loadUnreadNotifications] Debut...');
+      const result = await notificationService.getUnreadCount();
       
-      //  NOUVEAU : Récupérer les tontines du dashboard
-      let tontinesList = [];
-      if (normalizedRole === 'admin') {
-        tontinesList = dashResult.data?.data?.tontines?.mesTontines || [];
-      } else if (normalizedRole === 'tresorier') {
-        tontinesList = dashResult.data?.data?.mesTontines || [];
+      if (result.success) {
+        const count = result.count || 0;
+        setUnreadCount(count);
+        console.log('Notifications non lues:', count);
       } else {
-        tontinesList = dashResult.data?.data?.tontines || [];
+        console.error('Erreur getUnreadCount:', result.error);
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error('Exception loadUnreadNotifications:', error);
+      setUnreadCount(0);
+    }
+  };
+
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
+      const rawRole = user?.role || 'membre';
+      const normalizedRole = normalizeRole(rawRole);
+      
+      console.log('HOME - Role brut:', rawRole, '-> Normalise:', normalizedRole);
+      
+      const dashResult = await dashboardService.getDashboardByRole(rawRole);
+      
+      if (dashResult.success) {
+        console.log('Dashboard charge:', dashResult.data?.data);
+        setDashboardData(dashResult.data?.data);
+        
+        let tontinesList = [];
+        
+        if (normalizedRole === 'admin') {
+          tontinesList = dashResult.data?.data?.tontines?.mesTontines || [];
+        } else if (normalizedRole === 'tresorier') {
+          tontinesList = dashResult.data?.data?.mesTontines || [];
+        } else {
+          tontinesList = dashResult.data?.data?.tontines || [];
+        }
+        
+        // : Calculer nombreMembres à partir du tableau membres
+        const tontinesAvecCount = tontinesList.map(tontine => {
+          const count = tontine.membres?.length || tontine.nombreMembres || 0;
+          console.log(`Tontine ${tontine.nom}: ${count} membres`);
+          return {
+            ...tontine,
+            nombreMembres: count
+          };
+        });
+        
+        console.log('Tontines chargees avec counts:', tontinesAvecCount.length);
+        setMesTontines(tontinesAvecCount);
+      } else {
+        console.error('Erreur dashboard:', dashResult.error);
+        setMesTontines([]);
       }
       
-      console.log(' Tontines chargées:', tontinesList.length);
-      setMesTontines(tontinesList);
-    } else {
-      console.error(' Erreur dashboard:', dashResult.error);
-      setMesTontines([]);
+    } catch (error) {
+      console.error('Erreur chargement dashboard:', error);
+    } finally {
+      setLoading(false);
     }
-    
-  } catch (error) {
-    console.error(' Erreur chargement dashboard:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadDashboard();
+    await loadUnreadNotifications();
     setRefreshing(false);
   };
+
   const loadUserProfile = async () => {
-  try {
-    const result = await authService.getMe();
-    if (result.success && result.data) {
-      console.log(' User chargé dans HomeScreen:', result.data);
-      setUserData(result.data);
+    try {
+      const result = await authService.getMe();
+      if (result.success && result.data) {
+        console.log('User charge dans HomeScreen:', result.data);
+        setUserData(result.data);
+      }
+    } catch (error) {
+      console.error('Erreur chargement user:', error);
     }
-  } catch (error) {
-    console.error(' Erreur chargement user:', error);
-  }
-};
+  };
 
   const rawRole = user?.role || 'membre';
-  const userRole = normalizeRole(rawRole); //  Utiliser le rôle normalisé partout
+  const userRole = normalizeRole(rawRole);
 
-  //  FONCTION CORRIGÉE : Récupérer les KPIs selon le rôle normalisé
   const getKPIs = () => {
     if (!dashboardData) {
-      console.log(' Pas de dashboardData disponible');
       return null;
     }
 
-    console.log(' getKPIs - Rôle normalisé:', userRole);
-    console.log(' dashboardData:', JSON.stringify(dashboardData, null, 2));
-
     if (userRole === 'admin') {
-      const kpis = {
+      return {
         totalUtilisateurs: dashboardData.utilisateurs?.total || 0,
         utilisateursActifs: dashboardData.utilisateurs?.actifs || 0,
         totalTontines: dashboardData.tontines?.total || 0,
         tontinesActives: dashboardData.tontines?.actives || 0,
       };
-      console.log(' KPIs Admin:', kpis);
-      return kpis;
     }
 
     if (userRole === 'tresorier') {
-      const kpis = {
+      return {
         montantTotalCollecte: dashboardData.kpis?.montantTotalCollecte || 0,
         montantTotalDistribue: dashboardData.kpis?.montantTotalDistribue || 0,
         soldeDisponible: dashboardData.kpis?.soldeDisponible || 0,
         transactionsEnAttente: dashboardData.kpis?.transactionsEnAttente || 0,
       };
-      console.log(' KPIs Trésorier:', kpis);
-      return kpis;
     }
 
-    const kpis = {
+    return {
       tontinesActives: dashboardData.resume?.tontinesActives || 0,
       totalCotise: dashboardData.resume?.totalCotise || 0,
       totalGagne: dashboardData.resume?.totalGagne || 0,
       retards: dashboardData.resume?.retards || 0,
     };
-    console.log(' KPIs Membre:', kpis);
-    return kpis;
   };
 
   const kpis = getKPIs();
@@ -184,7 +207,9 @@ useFocusEffect(
       </SafeAreaView>
     );
   }
-const userName = userData?.prenom || user?.prenom || 'Utilisateur';
+
+  const userName = userData?.prenom || user?.prenom || 'Utilisateur';
+
   return (
     <SafeAreaView style={[HomeStyles.safeArea, { backgroundColor: theme.background }]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
@@ -228,6 +253,10 @@ const userName = userData?.prenom || user?.prenom || 'Utilisateur';
                   <Text style={HomeStyles.tontineCardName} numberOfLines={1}>
                     {tontine.nom}
                   </Text>
+                  {/*  AFFICHAGE DU NOMBRE DE MEMBRES */}
+                  <Text style={[HomeStyles.tontineCardSubtitle, { fontSize: 12, marginTop: 4 }]}>
+                    {tontine.nombreMembres || 0} membres
+                  </Text>
                 </TouchableOpacity>
               ))
             ) : (
@@ -258,7 +287,7 @@ const userName = userData?.prenom || user?.prenom || 'Utilisateur';
           </Text>
         </View>
 
-        {/*  ADMIN Dashboard Card */}
+        {/* ADMIN Dashboard */}
         {userRole === 'admin' && (
           <View style={HomeStyles.cardContainer}>
             <TouchableOpacity
@@ -287,7 +316,7 @@ const userName = userData?.prenom || user?.prenom || 'Utilisateur';
           </View>
         )}
 
-        {/*  TRESORIER Dashboard Card */}
+        {/* TRESORIER Dashboard */}
         {userRole === 'tresorier' && (
           <View style={HomeStyles.cardContainer}>
             <TouchableOpacity
@@ -316,7 +345,7 @@ const userName = userData?.prenom || user?.prenom || 'Utilisateur';
           </View>
         )}
 
-        {/*  MEMBRE Dashboard Card */}
+        {/* MEMBRE Dashboard */}
         {userRole === 'membre' && (
           <View style={HomeStyles.cardContainer}>
             <TouchableOpacity
@@ -347,7 +376,7 @@ const userName = userData?.prenom || user?.prenom || 'Utilisateur';
           </View>
         )}
 
-        {/*  Carte Créer des utilisateurs (Admin uniquement) */}
+        {/* Créer utilisateurs (Admin) */}
         {userRole === 'admin' && (
           <View style={HomeStyles.cardContainer}>
             <TouchableOpacity
@@ -394,20 +423,39 @@ const userName = userData?.prenom || user?.prenom || 'Utilisateur';
         </TouchableOpacity>
 
         {userRole === 'admin' && (
-  <TouchableOpacity
-    style={HomeStyles.navCenterButton}
-    onPress={() => navigation.navigate('ChooseTontineAction')}
-  >
-    <Ionicons name="add" size={40} color={Colors.textLight} />
-  </TouchableOpacity>
-)}
+          <TouchableOpacity
+            style={HomeStyles.navCenterButton}
+            onPress={() => navigation.navigate('ChooseTontineAction')}
+          >
+            <Ionicons name="add" size={40} color={Colors.textLight} />
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={HomeStyles.navItem}
           onPress={() => navigation.navigate('Notifications')}
         >
-          <Ionicons name="notifications-outline" size={24} color={theme.placeholder} />
-          <Text style={HomeStyles.notificationBadge}>0</Text>
+          <View>
+            <Ionicons name="notifications-outline" size={24} color={theme.placeholder} />
+            {unreadCount > 0 && (
+              <View style={{
+                position: 'absolute',
+                top: -5,
+                right: -10,
+                backgroundColor: Colors.danger,
+                borderRadius: 10,
+                minWidth: 20,
+                height: 20,
+                justifyContent: 'center',
+                alignItems: 'center',
+                paddingHorizontal: 5,
+              }}>
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
           <Text style={[HomeStyles.navTextInactive, { color: theme.placeholder }]}>Notifications</Text>
         </TouchableOpacity>
 

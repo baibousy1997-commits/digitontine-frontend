@@ -51,7 +51,13 @@ const HomeStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
+// , ajouter :
+tontineCardSubtitle: {
+  fontSize: 12,
+  color: 'rgba(255, 255, 255, 0.8)',
+  marginTop: 4,
+  textAlign: 'center',
+},
   // --- Section Mes Tontines (Carte flottante) ---
   tontineSection: {
     position: 'absolute',

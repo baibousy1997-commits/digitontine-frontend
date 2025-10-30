@@ -1,22 +1,16 @@
 // src/config/api.config.js
 /**
  * Configuration centralisée de l'API DigiTontine
- *  UTILISE LES VARIABLES D'ENVIRONNEMENT (.env)
+ * VERSION SECURISEE - Clé API sur le serveur uniquement
  */
 
-// ========================================
-// CHARGEMENT DES VARIABLES D'ENVIRONNEMENT
-// ========================================
 import Constants from 'expo-constants';
 
-// Récupérer les variables depuis app.json ou .env
 const ENV = Constants.expoConfig?.extra || {};
 
-// Valeurs par défaut (fallback si .env non configuré)
 const API_BASE_URL = ENV.API_BASE_URL || 'https://digitontine-backend.onrender.com';
-const API_KEY = ENV.API_KEY || 'digitontine_2025_secret_key_change_this_in_production';
-const API_PREFIX = ENV.API_PREFIX || '/digitontine';
-const API_TIMEOUT = parseInt(ENV.API_TIMEOUT || '30000', 10);
+const API_PREFIX = ENV.API_PREFIX || '/api/proxy';
+const API_TIMEOUT = parseInt(ENV.API_TIMEOUT || '120000', 10);
 
 // ========================================
 // CONFIGURATION COMPLÈTE
@@ -25,22 +19,21 @@ const API_CONFIG = {
   // URLs de base
   BASE_URL: API_BASE_URL,
   API_PREFIX: API_PREFIX,
-  FULL_URL: `${API_BASE_URL}${API_PREFIX}`,
+ FULL_URL: `${API_BASE_URL}/api/proxy`,
   
-  // Clé API (OBLIGATOIRE pour toutes les requêtes)
-  API_KEY: API_KEY,
+  // IMPORTANT : Pas de clé API ici
+  // La clé est gérée sur le serveur backend
   
-  // Timeout (30 secondes)
+  // Timeout (120 secondes)
   TIMEOUT: API_TIMEOUT,
   
-  // Nombre de tentatives en cas d'échec
+  // Nombre de tentatives
   RETRY_ATTEMPTS: 3,
   
-  // Headers par défaut
+  // Headers par défaut (SANS clé API)
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'X-API-Key': API_KEY, // Clé API dans le header
   },
   
   // Endpoints par module
@@ -129,7 +122,6 @@ const API_CONFIG = {
       DETAILS: (tirageId) => `/tirages/${tirageId}`,
       AUTOMATIQUE_TEST: (tontineId) => `/tirages/tontine/${tontineId}/automatique-test`,
       MES_GAINS: '/tirages/me/gains',
-      
     },
     
     // ========================================
@@ -154,6 +146,17 @@ const API_CONFIG = {
       DETAILS: (requestId) => `/validations/${requestId}`,
       RESEND_OTP: (requestId) => `/validations/resend-otp/${requestId}`,
     },
+
+    // ========================================
+    // NOTIFICATIONS
+    // ========================================
+    NOTIFICATIONS: {
+      LIST: '/notifications',
+      UNREAD_COUNT: '/notifications/unread-count',
+      MARK_AS_READ: (notificationId) => `/notifications/${notificationId}/read`,
+      DELETE: (notificationId) => `/notifications/${notificationId}`,
+      TAKE_ACTION: (notificationId) => `/notifications/${notificationId}/action`,
+    },
   },
   
   // Codes d'erreur personnalisés
@@ -170,25 +173,25 @@ const API_CONFIG = {
   
   // Messages d'erreur
   ERROR_MESSAGES: {
-    NETWORK_ERROR: 'Erreur de connexion. Vérifiez votre internet.',
-    TIMEOUT: 'La requête a pris trop de temps. Réessayez.',
-    UNAUTHORIZED: 'Session expirée. Veuillez vous reconnecter.',
-    FORBIDDEN: 'Vous n\'avez pas les permissions nécessaires.',
+    NETWORK_ERROR: 'Erreur de connexion. Verifiez votre internet.',
+    TIMEOUT: 'La requete a pris trop de temps. Reessayez.',
+    UNAUTHORIZED: 'Session expiree. Veuillez vous reconnecter.',
+    FORBIDDEN: 'Vous n\'avez pas les permissions necessaires.',
     NOT_FOUND: 'Ressource introuvable.',
-    VALIDATION_ERROR: 'Données invalides.',
-    SERVER_ERROR: 'Erreur serveur. Réessayez plus tard.',
+    VALIDATION_ERROR: 'Donnees invalides.',
+    SERVER_ERROR: 'Erreur serveur. Reessayez plus tard.',
     UNKNOWN_ERROR: 'Une erreur est survenue.',
   },
 };
 
 // ========================================
-// LOG DE DEBUG (à supprimer en production)
+// LOG DE DEBUG
 // ========================================
 if (__DEV__) {
-  console.log('🔧 API CONFIG LOADED:');
+  console.log('API CONFIG LOADED:');
   console.log('  - BASE_URL:', API_CONFIG.BASE_URL);
   console.log('  - FULL_URL:', API_CONFIG.FULL_URL);
-  console.log('  - API_KEY:', API_KEY ? ' Configurée' : ' Manquante');
+  console.log('  - API_KEY: Geree sur le serveur (securise)');
 }
 
 export default API_CONFIG;

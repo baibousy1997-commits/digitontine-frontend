@@ -41,12 +41,11 @@ const subscribeTokenRefresh = (callback) => {
 };
 
 // ========================================
-// INTERCEPTEUR DE REQUÊTE
+// INTERCEPTEUR DE REQUETE
 // ========================================
 apiClient.interceptors.request.use(
   async (config) => {
-    // 1. Ajouter la clé API (OBLIGATOIRE)
-    config.headers['X-API-Key'] = API_CONFIG.API_KEY;
+    // 1. La clé API est gérée sur le serveur backend
 
     // 2. Ajouter le token JWT si disponible
     const token = await tokenManager.getAccessToken();
@@ -54,31 +53,38 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // 3. Logger en développement
+    // 3. Augmenter le timeout pour les requêtes de tirage
+    if (config.url.includes('/tirages/') || config.url.includes('/tontine/')) {
+      config.timeout = 120000; // 120 secondes pour les tirages et tontines
+    }
+
+    // 4. Logger en développement
     if (__DEV__) {
       console.log(`[API] ${config.method.toUpperCase()} ${config.url}`);
       if (config.data) {
-        console.log('Data:', config.data);
+        console.log('[API] Data:', config.data);
       }
     }
 
     return config;
   },
   (error) => {
-    console.error(' [API] Erreur requête:', error);
+    console.error('[API] Erreur requete:', error);
     return Promise.reject(error);
   }
 );
 
 // ========================================
-// INTERCEPTEUR DE RÉPONSE
+// INTERCEPTEUR DE REPONSE
 // ========================================
 apiClient.interceptors.response.use(
   (response) => {
     // Logger en développement
     if (__DEV__) {
-      console.log(` [API] ${response.config.method.toUpperCase()} ${response.config.url}`);
-      console.log(' Response:', response.data);
+      console.log(`[API] ${response.config.method.toUpperCase()} ${response.config.url} - Status: ${response.status}`);
+      if (response.data) {
+        console.log('[API] Response:', response.data);
+      }
     }
 
     return response;
@@ -88,9 +94,11 @@ apiClient.interceptors.response.use(
 
     // Logger l'erreur
     if (__DEV__) {
-      console.error(' [API] Erreur:', error.response?.status, error.message);
+      console.error('[API] Erreur:', error.response?.status, error.message);
       if (error.response?.data) {
-        console.error(' Error data:', error.response.data);
+        console.error('[API] Error data:', error.response.data);
+      } else if (error.code) {
+        console.error('[API] Error code:', error.code);
       }
     }
 
@@ -105,9 +113,9 @@ apiClient.interceptors.response.use(
       const backendCode = error.response?.data?.code || '';
       const backendError = error.response?.data?.error || '';
 
-      console.log(' 401 Error - Message:', backendMessage);
-      console.log(' 401 Error - Code:', backendCode);
-      console.log(' 401 Error - Error:', backendError);
+      console.log('[API] 401 Error - Message:', backendMessage);
+      console.log('[API] 401 Error - Code:', backendCode);
+      console.log('[API] 401 Error - Error:', backendError);
 
       // Vérifier si c'est bien une erreur de session expirée
       const isTokenExpired = 
@@ -118,12 +126,12 @@ apiClient.interceptors.response.use(
         backendCode === 'SESSION_EXPIRED';
 
       if (isTokenExpired) {
-        console.warn(' Session expirée détectée dans apiClient');
+        console.warn('[API] Session expirée détectée');
         
         // Nettoyer les tokens localement
         await tokenManager.clearTokens();
         
-        // Émettre l'événement pour que AuthContext affiche le message
+        // Emettre l'événement pour que AuthContext affiche le message
         authEvents.emit('session_expired');
         
         return Promise.reject({
@@ -147,29 +155,26 @@ apiClient.interceptors.response.use(
     // CAS 2 : Erreur réseau (pas de connexion)
     // ========================================
     if (!error.response) {
-      console.warn('NETWORK ERROR - Connexion internet instable');
+      const errorMessage = error.message || 'Erreur réseau inconnue';
+      console.warn('[API] NETWORK ERROR -', errorMessage);
+      console.warn('[API] Error code:', error.code);
+      
+      // Vérifier si c'est un timeout
+      const isTimeout = error.code === 'ECONNABORTED' || 
+                       errorMessage.includes('timeout') || 
+                       errorMessage.includes('ECONNABORTED');
       
       return Promise.reject({
-        code: API_CONFIG.ERROR_CODES.NETWORK_ERROR,
-        message: API_CONFIG.ERROR_MESSAGES.NETWORK_ERROR,
+        code: isTimeout ? API_CONFIG.ERROR_CODES.TIMEOUT : API_CONFIG.ERROR_CODES.NETWORK_ERROR,
+        message: isTimeout ? 'La requete a expire. Veuillez reessayer.' : API_CONFIG.ERROR_MESSAGES.NETWORK_ERROR,
         originalError: error,
         isNetworkError: true,
+        isTimeout: isTimeout,
       });
     }
 
     // ========================================
-    // CAS 3 : Timeout
-    // ========================================
-    if (error.code === 'ECONNABORTED') {
-      return Promise.reject({
-        code: API_CONFIG.ERROR_CODES.TIMEOUT,
-        message: API_CONFIG.ERROR_MESSAGES.TIMEOUT,
-        originalError: error,
-      });
-    }
-
-    // ========================================
-    // CAS 4 : Autres erreurs HTTP
+    // CAS 3 : Autres erreurs HTTP
     // ========================================
     const status = error.response.status;
     let errorCode = API_CONFIG.ERROR_CODES.UNKNOWN_ERROR;
@@ -207,6 +212,8 @@ apiClient.interceptors.response.use(
         errorMessage = backendMessage || errorMessage;
     }
 
+    console.error('[API] HTTP Error', status, '-', errorCode, ':', errorMessage);
+
     return Promise.reject({
       code: errorCode,
       message: errorMessage,
@@ -229,6 +236,7 @@ export const get = async (url, config = {}) => {
     const response = await apiClient.get(url, config);
     return { success: true, data: response.data };
   } catch (error) {
+    console.error('[API Helper] GET Error:', error.code || error.message);
     return { success: false, error };
   }
 };
@@ -241,6 +249,7 @@ export const post = async (url, data = {}, config = {}) => {
     const response = await apiClient.post(url, data, config);
     return { success: true, data: response.data };
   } catch (error) {
+    console.error('[API Helper] POST Error:', error.code || error.message);
     return { success: false, error };
   }
 };
@@ -253,6 +262,7 @@ export const put = async (url, data = {}, config = {}) => {
     const response = await apiClient.put(url, data, config);
     return { success: true, data: response.data };
   } catch (error) {
+    console.error('[API Helper] PUT Error:', error.code || error.message);
     return { success: false, error };
   }
 };
@@ -265,6 +275,7 @@ export const del = async (url, config = {}) => {
     const response = await apiClient.delete(url, config);
     return { success: true, data: response.data };
   } catch (error) {
+    console.error('[API Helper] DELETE Error:', error.code || error.message);
     return { success: false, error };
   }
 };
@@ -277,6 +288,7 @@ export const patch = async (url, data = {}, config = {}) => {
     const response = await apiClient.patch(url, data, config);
     return { success: true, data: response.data };
   } catch (error) {
+    console.error('[API Helper] PATCH Error:', error.code || error.message);
     return { success: false, error };
   }
 };
