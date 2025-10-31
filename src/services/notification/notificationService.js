@@ -100,7 +100,37 @@ const deleteNotification = async (notificationId) => {
     return { success: false, error: error.message };
   }
 };
+/**
+ * Accepter invitation tontine
+ */
+const acceptInvitation = async (notificationId) => {
+  try {
+    const response = await apiClient.post(`${BASE_URL}/${notificationId}/accepter-invitation`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('Erreur acceptInvitation:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message,
+    };
+  }
+};
 
+/**
+ * Refuser invitation tontine
+ */
+const refuseInvitation = async (notificationId) => {
+  try {
+    const response = await apiClient.post(`${BASE_URL}/${notificationId}/refuser-invitation`);
+    return { success: true, data: response.data };
+  } catch (error) {
+    console.error('Erreur refuseInvitation:', error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message,
+    };
+  }
+};
 export default {
   getMyNotifications,
   getUnreadCount,
@@ -108,4 +138,6 @@ export default {
   markAllAsRead,
   takeAction,
   deleteNotification,
+  acceptInvitation,     //  NOUVEAU
+  refuseInvitation,     //  NOUVEAU
 };

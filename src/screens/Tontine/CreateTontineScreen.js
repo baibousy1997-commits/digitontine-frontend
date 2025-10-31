@@ -18,7 +18,7 @@ const [formData, setFormData] = useState({
   montantCotisation: '',
   frequence: 'mensuelle', 
   dateDebut: '',
-  nombreMembresMin: '3',
+  nombreMembresMin: '1',
   nombreMembresMax: '50',
   tauxPenalite: '',
   delaiGrace: '',
@@ -60,9 +60,8 @@ const [dateDisplay, setDateDisplay] = useState(getCurrentDate());
     'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'
   ];
   const years = Array.from({ length: 10 }, (_, i) => 2025 + i);
-  const minOptions = Array.from({ length: 19 }, (_, i) => i + 2); // From 2 to 20
-  const maxOptions = Array.from({ length: 49 }, (_, i) => i + 2); // From 2 to 50
-
+ const minOptions = Array.from({ length: 19 }, (_, i) => i + 1); //  From 1 to 19
+const maxOptions = Array.from({ length: 50 }, (_, i) => i + 1); //  From 1 to 50
   useEffect(() => {
     loadTresoriers();
   }, []);
@@ -151,13 +150,13 @@ const validateForm = () => {
   const minMembres = parseInt(formData.nombreMembresMin);
   const maxMembres = parseInt(formData.nombreMembresMax);
   
-  if (isNaN(minMembres) || minMembres < 2) {
-    Alert.alert('Erreur', 'Le minimum de membres est de 2');
+  if (isNaN(minMembres) || minMembres < 1) {
+    Alert.alert('Erreur', 'Le minimum de membres à ajouter est de 1');
     return false;
   }
   
-  if (isNaN(maxMembres) || maxMembres < 2) {
-    Alert.alert('Erreur', 'Le maximum de membres doit être au moins 2');
+  if (isNaN(maxMembres) || maxMembres < 1) {
+    Alert.alert('Erreur', 'Le maximum de membres supplémentaires doit être au moins 1');
     return false;
   }
   
@@ -421,7 +420,7 @@ const getTresorierNom = (id) => {
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Duree ({unit}) / Maximum de membres</Text>
+       <Text style={styles.sectionTitle}>Maximum de membres (= Durée en {unit})</Text>
         <TouchableOpacity 
           style={styles.dropdownButton}
           onPress={() => setShowMaxPicker(!showMaxPicker)}
@@ -442,11 +441,18 @@ const getTresorierNom = (id) => {
                 }}>
                   <Text style={styles.dropdownItem}>{d} {unit}</Text>
                 </TouchableOpacity>
+                
               ))}
             </ScrollView>
           </View>
         )}
-
+{/* */}
+        {formData.nombreMembresMax && (
+          <Text style={styles.helperText}>
+            Durée totale : {formData.nombreMembresMax} {unit} 
+            (1 {unit === 'mois' ? 'mois' : 'semaine'} par membre)
+          </Text>
+        )}
        <Text style={styles.sectionTitle}>Fréquence des versements</Text>
 <View style={styles.frequencyContainer}>
   <TouchableOpacity 

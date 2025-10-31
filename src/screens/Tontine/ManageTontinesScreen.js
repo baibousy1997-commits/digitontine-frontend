@@ -129,10 +129,47 @@ if (result.success) {
     );
   };
 
-  const handleBlockTontine = (tontine) => {
-    setSelectedTontine(tontine);
-    setShowBlockModal(true);
-  };
+const handleBlockTontine = (tontine) => {
+  Alert.alert(
+    ' Blocage avec validation',
+    `Le blocage de "${tontine.nom}" nécessite la validation d'un Trésorier.\n\nVoulez-vous créer une demande de validation ?`,
+    [
+      { text: 'Annuler', style: 'cancel' },
+      { 
+        text: 'Créer la demande',
+        onPress: () => {
+          // Demander le motif
+          Alert.prompt(
+            'Motif du blocage',
+            'Indiquez la raison du blocage :',
+            [
+              { text: 'Annuler', style: 'cancel' },
+              {
+                text: 'Valider',
+                onPress: (motif) => {
+                  if (!motif || motif.trim().length < 10) {
+                    Alert.alert(' Erreur', 'Le motif doit contenir au moins 10 caractères');
+                    return;
+                  }
+                  
+                  navigation.navigate('CreateValidationRequest', {
+                    actionType: 'BLOCK_TONTINE',
+                    resourceType: 'Tontine',
+                    resourceId: getTontineId(tontine),
+                    resourceName: tontine.nom,
+                    reason: motif.trim(),
+                    onSuccess: () => loadTontines(),
+                  });
+                }
+              }
+            ],
+            'plain-text'
+          );
+        }
+      }
+    ]
+  );
+};
 
   const confirmBlockTontine = async () => {
     if (!blockMotif.trim()) {
@@ -163,37 +200,46 @@ if (result.success) {
     }
   };
 
-  const handleUnblockTontine = (tontine) => {
-    Alert.alert(
-      'Débloquer la tontine',
-      `Voulez-vous réactiver "${tontine.nom}" ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { 
-          text: 'Débloquer', 
-          style: 'default',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              const result = await tontineService.unblockTontine(getTontineId(tontine));
-              
-              if (result.success) {
-                Alert.alert(' Succès', 'Tontine débloquée avec succès');
-                await loadTontines();
-              } else {
-                Alert.alert(' Erreur', result.error?.message || 'Impossible de débloquer la tontine');
+const handleUnblockTontine = (tontine) => {
+  Alert.alert(
+    ' Déblocage avec validation',
+    `Le déblocage de "${tontine.nom}" nécessite la validation d'un Trésorier.\n\nVoulez-vous créer une demande de validation ?`,
+    [
+      { text: 'Annuler', style: 'cancel' },
+      { 
+        text: 'Créer la demande',
+        onPress: () => {
+          Alert.prompt(
+            'Raison du déblocage',
+            'Indiquez pourquoi vous souhaitez débloquer :',
+            [
+              { text: 'Annuler', style: 'cancel' },
+              {
+                text: 'Valider',
+                onPress: (raison) => {
+                  if (!raison || raison.trim().length < 10) {
+                    Alert.alert(' Erreur', 'La raison doit contenir au moins 10 caractères');
+                    return;
+                  }
+                  
+                  navigation.navigate('CreateValidationRequest', {
+                    actionType: 'UNBLOCK_TONTINE',
+                    resourceType: 'Tontine',
+                    resourceId: getTontineId(tontine),
+                    resourceName: tontine.nom,
+                    reason: raison.trim(),
+                    onSuccess: () => loadTontines(),
+                  });
+                }
               }
-            } catch (error) {
-              console.error('Erreur déblocage:', error);
-              Alert.alert(' Erreur', 'Une erreur est survenue');
-            } finally {
-              setActionLoading(false);
-            }
-          }
+            ],
+            'plain-text'
+          );
         }
-      ]
-    );
-  };
+      }
+    ]
+  );
+};
 
   const handleCloseTontine = (tontine) => {
     Alert.alert(
@@ -226,7 +272,27 @@ if (result.success) {
       ]
     );
   };
-
+// AJOUTER CETTE FONCTION AVANT renderTontine
+const handleDeleteTontine = (tontine) => {
+  Alert.alert(
+    ' SUPPRESSION CRITIQUE',
+    `ATTENTION !\n\nVous allez supprimer définitivement la tontine "${tontine.nom}".\n\nCette action nécessite la validation d'un Trésorier.\n\nÊtes-vous sûr de vouloir créer cette demande ?`,
+    [
+      { text: 'Annuler', style: 'cancel' },
+      { 
+        text: 'Créer la demande', 
+        style: 'destructive',
+        onPress: () => navigation.navigate('CreateValidationRequest', {
+          actionType: 'DELETE_TONTINE',
+          resourceType: 'Tontine',
+          resourceId: getTontineId(tontine),
+          resourceName: tontine.nom,
+          onSuccess: () => loadTontines(),
+        })
+      }
+    ]
+  );
+};
   // ========================================
   // RENDER ITEM
   // ========================================
@@ -284,6 +350,17 @@ if (result.success) {
 
         {/* Actions */}
         <View style={styles.actionsContainer}>
+            {/* AJOUTER CE BOUTON dans la section des actions existantes */}
+{(item.statut === 'En attente' || item.statut === 'Terminee') && (
+  <TouchableOpacity
+    style={[styles.actionBtn, { backgroundColor: '#DC3545' }]}
+    onPress={() => handleDeleteTontine(item)}
+    disabled={actionLoading}
+  >
+    <Ionicons name="trash" size={18} color="#fff" />
+    <Text style={styles.actionBtnText}>Supprimer</Text>
+  </TouchableOpacity>
+)}
           {canActivate && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: Colors.accentGreen }]}

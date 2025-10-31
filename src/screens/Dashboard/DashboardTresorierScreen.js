@@ -300,31 +300,45 @@ const loadDashboard = async () => {
           </>
         )}
 
-        {/* Actions rapides */}
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Actions rapides</Text>
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: Colors.accentYellow }]}
-          onPress={() => navigation.navigate('TransactionsValidation')}
-        >
-          <Ionicons name="checkmark-done" size={24} color="#333" />
-          <Text style={[styles.actionButtonText, { color: '#333' }]}>Valider les transactions</Text>
-        </TouchableOpacity>
+      {/* Actions rapides */}
+<Text style={[styles.sectionTitle, { color: theme.text }]}>Actions rapides</Text>
 
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
-          onPress={() => navigation.navigate('TransactionsList')}
-        >
-          <MaterialCommunityIcons name="finance" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>Historique des transactions</Text>
-        </TouchableOpacity>
+{/*  BOUTON 1 - Demandes à valider (Admin) */}
+<TouchableOpacity
+  style={[styles.actionButton, { backgroundColor: '#FF6B6B' }]}
+  onPress={() => navigation.navigate('PendingValidations')}
+>
+  <MaterialCommunityIcons name="shield-check" size={24} color="#fff" />
+  <Text style={styles.actionButtonText}>Demandes à valider (Admin)</Text>
+</TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: Colors.accentGreen }]}
-          onPress={() => navigation.navigate('MyTontines')}
-        >
-          <MaterialCommunityIcons name="hand-coin" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>Voir mes tontines</Text>
-        </TouchableOpacity>
+{/*  BOUTON 2 - Valider les transactions */}
+<TouchableOpacity
+  style={[styles.actionButton, { backgroundColor: Colors.accentYellow }]}
+  onPress={() => navigation.navigate('TransactionsValidation')}
+>
+  <Ionicons name="checkmark-done" size={24} color="#333" />
+  <Text style={[styles.actionButtonText, { color: '#333' }]}>Valider les transactions</Text>
+</TouchableOpacity>
+
+
+{/*  BOUTON 3 - Historique des transactions */}
+<TouchableOpacity
+  style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
+  onPress={() => navigation.navigate('TransactionsList')}
+>
+  <MaterialCommunityIcons name="finance" size={24} color="#fff" />
+  <Text style={styles.actionButtonText}>Historique des transactions</Text>
+</TouchableOpacity>
+
+{/*  BOUTON 4 - Voir mes tontines */}
+<TouchableOpacity
+  style={[styles.actionButton, { backgroundColor: Colors.accentGreen }]}
+  onPress={() => navigation.navigate('MyTontines')}
+>
+  <MaterialCommunityIcons name="hand-coin" size={24} color="#fff" />
+  <Text style={styles.actionButtonText}>Voir mes tontines</Text>
+</TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

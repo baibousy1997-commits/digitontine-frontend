@@ -137,15 +137,14 @@ const API_CONFIG = {
     // ========================================
     // VALIDATION
     // ========================================
-    VALIDATION: {
-      CREATE_REQUEST: '/validations/request',
-      CONFIRM_TRESORIER: (requestId) => `/validations/confirm/tresorier/${requestId}`,
-      REJECT: (requestId) => `/validations/reject/${requestId}`,
-      PENDING: '/validations/pending',
-      MY_REQUESTS: '/validations/my-requests',
-      DETAILS: (requestId) => `/validations/${requestId}`,
-      RESEND_OTP: (requestId) => `/validations/resend-otp/${requestId}`,
-    },
+  VALIDATION: {
+  CREATE_REQUEST: '/validation/request',  //  
+  ACCEPT: (requestId) => `/validation/accept/${requestId}`, //  
+  REJECT: (requestId) => `/validation/reject/${requestId}`,
+  PENDING: '/validation/pending',
+  MY_REQUESTS: '/validation/my-requests',
+  DETAILS: (requestId) => `/validation/${requestId}`,
+},
 
     // ========================================
     // NOTIFICATIONS

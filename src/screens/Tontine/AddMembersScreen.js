@@ -85,45 +85,64 @@ const AddMembersScreen = ({ navigation, route }) => {
     });
   };
 
-  const handleAddMembers = async () => {
-    if (selectedMembers.length === 0) {
-      Alert.alert(
-        'Aucun membre selectionne',
-        'Vous devez selectionner au moins 1 membre'
-      );
-      return;
-    }
+ const handleAddMembers = async () => {
+  if (selectedMembers.length === 0) {
+    Alert.alert(
+      'Aucun membre sélectionné',
+      'Vous devez sélectionner au moins 1 membre'
+    );
+    return;
+  }
 
-    setSubmitting(true);
+  Alert.alert(
+    'Confirmer l\'invitation',
+    `Envoyer une invitation à ${selectedMembers.length} membre(s) ?\n\n` +
+    `Ils recevront le règlement complet de la tontine et devront accepter avant de rejoindre.`,
+    [
+      { text: 'Annuler', style: 'cancel' },
+      { 
+        text: 'Envoyer invitations', 
+        onPress: async () => {
+          setSubmitting(true);
+          try {
+            console.log(' Envoi invitations:', selectedMembers);
+            
+            //  NOUVELLE MÉTHODE : inviterMembres au lieu de addMembers
+            const result = await tontineService.inviterMembres(tontineId, selectedMembers);
+            console.log('Résultat invitations:', result);
 
-    try {
-      console.log('Ajout des membres:', selectedMembers);
-      const result = await tontineService.addMembers(tontineId, selectedMembers);
-      console.log('Resultat ajout:', result);
+            if (result.success) {
+              const invitationsEnvoyees = result.data?.data?.invitationsEnvoyees || [];
+              const erreurs = result.data?.data?.erreurs || [];
 
-      if (result.success) {
-        Alert.alert(
-          'Succes',
-          `${selectedMembers.length} membre(s) ajoute(s) a la tontine`,
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('Accueil'),
-            },
-          ]
-        );
-      } else {
-        const errorMsg = result.error?.message || 'Impossible d\'ajouter les membres';
-        console.error('Erreur ajout:', result.error);
-        Alert.alert('Erreur', errorMsg);
+              let message = `${invitationsEnvoyees.length} invitation(s) envoyée(s) avec succès.\n\n`;
+              message += `Les membres recevront une notification avec le règlement complet de la tontine.`;
+
+              if (erreurs.length > 0) {
+                message += `\n\n ${erreurs.length} erreur(s) rencontrée(s).`;
+              }
+
+              Alert.alert(
+                'Invitations envoyées',
+                message,
+                [{ text: 'OK', onPress: () => navigation.navigate('Accueil') }]
+              );
+            } else {
+              const errorMsg = result.error?.message || 'Impossible d\'envoyer les invitations';
+              console.error('Erreur invitations:', result.error);
+              Alert.alert('Erreur', errorMsg);
+            }
+          } catch (error) {
+            console.error('Exception invitations:', error);
+            Alert.alert('Erreur', 'Une erreur est survenue lors de l\'envoi');
+          } finally {
+            setSubmitting(false);
+          }
+        }
       }
-    } catch (error) {
-      console.error('Exception ajout membres:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue lors de l\'ajout');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    ]
+  );
+};
 
   const filteredMembres = membres.filter(membre => {
     const fullName = `${membre.prenom} ${membre.nom}`.toLowerCase();

@@ -78,15 +78,39 @@ const NotificationsScreen = ({ navigation }) => {
     }
   };
 
-  const handleAction = async (notification, action) => {
-    try {
-      setActionLoading(prev => ({ ...prev, [notification._id]: true }));
+const handleAction = async (notification, action) => {
+  try {
+    setActionLoading(prev => ({ ...prev, [notification._id]: true }));
 
+    // ✅ CAS 1 : Invitation tontine (nouveau système)
+    if (notification.type === 'TONTINE_INVITATION') {
+      const accepter = action === 'accepted';
+      const result = accepter 
+        ? await notificationService.acceptInvitation(notification._id)
+        : await notificationService.refuseInvitation(notification._id);
+
+      if (result.success) {
+        Alert.alert(
+          accepter ? '✅ Bienvenue !' : '❌ Invitation refusée',
+          accepter 
+            ? `Vous avez rejoint "${notification.data?.tontineId?.nom || 'la tontine'}" avec succès.\n\nVous recevrez les notifications de tirage.`
+            : 'Invitation déclinée.',
+          [{ text: 'OK' }]
+        );
+
+        // ✅ Retirer la notification de la liste
+        setNotifications(prev => prev.filter(n => n._id !== notification._id));
+      } else {
+        Alert.alert('Erreur', result.error || 'Impossible de traiter l\'invitation');
+      }
+    } 
+    // ✅ CAS 2 : Notification tirage (système existant)
+    else {
       const result = await notificationService.takeAction(notification._id, action);
 
       if (result.success) {
         Alert.alert(
-          action === 'accepted' ? 'Confirmation' : 'Refus enregistre',
+          action === 'accepted' ? 'Confirmation' : 'Refus enregistré',
           action === 'accepted' 
             ? 'Vous participez au prochain tirage' 
             : 'Vous ne participerez pas au tirage',
@@ -103,13 +127,14 @@ const NotificationsScreen = ({ navigation }) => {
       } else {
         Alert.alert('Erreur', result.error || 'Impossible d\'enregistrer votre choix');
       }
-    } catch (error) {
-      console.error('Erreur action:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [notification._id]: false }));
     }
-  };
+  } catch (error) {
+    console.error('Erreur action:', error);
+    Alert.alert('Erreur', 'Une erreur est survenue');
+  } finally {
+    setActionLoading(prev => ({ ...prev, [notification._id]: false }));
+  }
+};
 
   const deleteNotification = async (notificationId) => {
     Alert.alert(

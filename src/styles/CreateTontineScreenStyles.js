@@ -135,7 +135,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-
+helperText: {
+  fontSize: 13,
+  color: '#666',
+  marginTop: -15,
+  marginBottom: 15,
+  fontStyle: 'italic',
+},
   // --- DURÉE ---
   durationInfo: {
     fontSize: 14,

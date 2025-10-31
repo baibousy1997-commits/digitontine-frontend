@@ -30,55 +30,53 @@ const DashboardMembreScreen = ({ navigation }) => {
   useEffect(() => {
     loadDashboard();
   }, []);
-
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
+const loadDashboard = async () => {
+  try {
+    setLoading(true);
+    
+    console.log('========== DEBUT CHARGEMENT DASHBOARD MEMBRE ==========');
+    
+    // 1. Charger le dashboard principal
+    console.log('1. Chargement dashboard principal...');
+    const dashResult = await dashboardService.getDashboardMembre();
+    
+    if (dashResult.success) {
+      const data = dashResult.data?.data;
+      console.log(' Dashboard data:', data);
+      setDashboardData(data);
       
-      console.log('========== DEBUT CHARGEMENT DASHBOARD MEMBRE ==========');
-      
-      // 1. Charger le dashboard principal
-      console.log('1. Chargement dashboard principal...');
-      const dashResult = await dashboardService.getDashboardMembre();
-      
-      if (dashResult.success) {
-        setDashboardData(dashResult.data?.data);
-      }
-      
-      // 2. Charger MES tontines
-      console.log('2. Chargement de mes tontines...');
-      const tontinesResult = await tontineService.mesTontines();
-      
-      if (tontinesResult.success) {
-        const tontinesList = tontinesResult.data?.data?.tontines || [];
-        console.log(' Tontines chargées:', tontinesList.length);
-        setMesTontines(tontinesList);
-      } else {
-        console.log(' Erreur chargement tontines:', tontinesResult.error);
-        setMesTontines([]);
-      }
-      
-      // 3. Charger mes gains
-      console.log('3. Chargement de mes gains...');
-      const gainsResult = await tirageService.mesGains();
-      
-      if (gainsResult.success) {
-        const gainsList = gainsResult.data?.data?.tirages || [];
-        console.log(' Gains chargés:', gainsList.length);
-        setMesGains(gainsList);
-      } else {
-        console.log(' Erreur chargement gains:', gainsResult.error);
-        setMesGains([]);
-      }
-      
-      console.log('========== FIN CHARGEMENT DASHBOARD MEMBRE ==========');
-      
-    } catch (error) {
-      console.error(' ERREUR CRITIQUE loadDashboard:', error);
-    } finally {
-      setLoading(false);
+      //  CORRECTION : Utiliser les tontines du dashboard (comme Admin/Trésorier)
+      const tontinesList = data?.tontines || [];  // ✅ CHANGÉ : Chemin simplifié
+      console.log(' Tontines du membre:', tontinesList.length);
+      console.log('Détails tontines:', JSON.stringify(tontinesList, null, 2));
+      setMesTontines(tontinesList);
+    } else {
+      console.log(' Erreur dashboard:', dashResult.error);
+      setDashboardData(null);
+      setMesTontines([]);
     }
-  };
+    
+    // 2. Charger mes gains (garder tel quel)
+    console.log('2. Chargement de mes gains...');
+    const gainsResult = await tirageService.mesGains();
+    
+    if (gainsResult.success) {
+      const gainsList = gainsResult.data?.data?.tirages || [];
+      console.log(' Gains chargés:', gainsList.length);
+      setMesGains(gainsList);
+    } else {
+      console.log(' Erreur chargement gains:', gainsResult.error);
+      setMesGains([]);
+    }
+    
+    console.log('========== FIN CHARGEMENT DASHBOARD MEMBRE ==========');
+    
+  } catch (error) {
+    console.error(' ERREUR CRITIQUE loadDashboard:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const onRefresh = async () => {
     setRefreshing(true);

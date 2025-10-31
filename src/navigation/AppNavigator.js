@@ -4,6 +4,11 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useAuthContext } from '../context/AuthContext';
 import { ActivityIndicator, View, Text } from 'react-native';
 
+//  IMPORTS VALIDATION - PLUS DE DOUBLON
+import CreateValidationRequestScreen from '../screens/Validation/CreateValidationRequestScreen';
+import PendingValidationsScreen from '../screens/Validation/PendingValidationsScreen';
+import MyValidationRequestsScreen from '../screens/Validation/MyValidationRequestsScreen';
+
 // Auth Screens
 import LoginScreen from '../screens/Auth/LoginScreen';
 import RegisterAdminScreen from '../screens/Auth/RegisterAdminScreen';
@@ -40,7 +45,6 @@ import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 
 const Stack = createStackNavigator();
 
-// Composants séparés (fix warning)
 const WalletPlaceholder = () => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
     <Text>Wallet - A venir</Text>
@@ -77,10 +81,24 @@ const MainStack = () => (
     <Stack.Screen name="CreateTransaction" component={CreateTransactionScreen} />
     <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
     
-    {/* ✅ Notifications Screen - Réel */}
-    <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    {/*  VALIDATION SCREENS */}
+    <Stack.Screen 
+      name="CreateValidationRequest" 
+      component={CreateValidationRequestScreen} 
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen 
+      name="MyValidationRequests" 
+      component={MyValidationRequestsScreen} 
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen 
+      name="PendingValidations" 
+      component={PendingValidationsScreen} 
+      options={{ headerShown: false }}
+    />
     
-    {/* Wallet Placeholder */}
+    <Stack.Screen name="Notifications" component={NotificationsScreen} />
     <Stack.Screen name="Wallet" component={WalletPlaceholder} />
   </Stack.Navigator>
 );
