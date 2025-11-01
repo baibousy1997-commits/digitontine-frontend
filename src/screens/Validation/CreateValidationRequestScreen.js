@@ -29,6 +29,7 @@ const CreateValidationRequestScreen = ({ route, navigation }) => {
   } = route.params || {};
 
   const [loading, setLoading] = useState(false);
+  const [loadingTresoriers, setLoadingTresoriers] = useState(true);
   const [tresoriers, setTresoriers] = useState([]);
   const [selectedTresorier, setSelectedTresorier] = useState(null);
   const [reason, setReason] = useState(initialReason || '');
@@ -39,34 +40,56 @@ const CreateValidationRequestScreen = ({ route, navigation }) => {
 
   const loadTresoriers = async () => {
     try {
+      setLoadingTresoriers(true);
+      console.log('Debut chargement des tresoriers...');
+      
       const result = await userService.listUsers({ 
         role: 'tresorier', 
         isActive: true,
         limit: 100 
       });
       
-      if (result.success) {
-        const data = result.data?.data?.data || result.data?.data || [];
-        setTresoriers(data);
+      console.log('Resultat complet:', JSON.stringify(result, null, 2));
+      console.log('Success:', result.success);
+      console.log('Structure data:', result.data);
+      
+      if (result.success && result.data?.data) {
+        // CORRECTION : Meme logique que CreateTontineScreen.js
+        const tresoriersList = Array.isArray(result.data.data?.data) 
+          ? result.data.data.data 
+          : (Array.isArray(result.data.data) ? result.data.data : []);
+
+        console.log('Nombre de tresoriers:', tresoriersList.length);
+        console.log('Liste des tresoriers:', tresoriersList);
+        setTresoriers(tresoriersList);
         
-        // Sélectionner le premier par défaut
-        if (data.length > 0) {
-          setSelectedTresorier(data[0]._id || data[0].id);
+        // Selectionner le premier par defaut
+        if (tresoriersList.length > 0) {
+          setSelectedTresorier(tresoriersList[0]._id || tresoriersList[0].id);
         }
+      } else {
+        console.log('Aucun tresorier trouve ou structure inattendue');
+        console.log('Donnees recues:', result);
+        setTresoriers([]);
       }
     } catch (error) {
-      console.error('Erreur chargement trésoriers:', error);
+      console.error('Erreur chargement tresoriers:', error);
+      console.error('Stack:', error.stack);
+      setTresoriers([]);
+    } finally {
+      console.log('Fin chargement - loadingTresoriers = false');
+      setLoadingTresoriers(false);
     }
   };
 
   const handleSubmit = async () => {
     if (!reason.trim() || reason.trim().length < 10) {
-      Alert.alert(' Erreur', 'La raison doit contenir au moins 10 caractères');
+      Alert.alert('Erreur', 'La raison doit contenir au moins 10 caracteres');
       return;
     }
 
     if (!selectedTresorier) {
-      Alert.alert(' Erreur', 'Veuillez sélectionner un trésorier');
+      Alert.alert('Erreur', 'Veuillez selectionner un tresorier');
       return;
     }
 
@@ -82,8 +105,8 @@ const CreateValidationRequestScreen = ({ route, navigation }) => {
 
       if (result.success) {
         Alert.alert(
-          ' Demande créée',
-          `Votre demande a été envoyée au trésorier.\n\nVous recevrez une notification lorsqu'il aura validé.`,
+          'Demande creee',
+          `Votre demande a ete envoyee au tresorier.\n\nVous recevrez une notification lorsqu'il aura valide.`,
           [
             {
               text: 'OK',
@@ -95,11 +118,11 @@ const CreateValidationRequestScreen = ({ route, navigation }) => {
           ]
         );
       } else {
-        Alert.alert(' Erreur', result.error?.message || 'Impossible de créer la demande');
+        Alert.alert('Erreur', result.error?.message || 'Impossible de creer la demande');
       }
     } catch (error) {
-      console.error('Erreur création demande:', error);
-      Alert.alert(' Erreur', 'Une erreur est survenue');
+      console.error('Erreur creation demande:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue');
     } finally {
       setLoading(false);
     }
@@ -108,10 +131,10 @@ const CreateValidationRequestScreen = ({ route, navigation }) => {
   const actionLabels = {
     DELETE_USER: 'Suppression d\'utilisateur',
     ACTIVATE_USER: 'Activation d\'utilisateur',
-    DEACTIVATE_USER: 'Désactivation d\'utilisateur',
+    DEACTIVATE_USER: 'Desactivation d\'utilisateur',
     DELETE_TONTINE: 'Suppression de tontine',
     BLOCK_TONTINE: 'Blocage de tontine',
-    UNBLOCK_TONTINE: 'Déblocage de tontine',
+    UNBLOCK_TONTINE: 'Deblocage de tontine',
   };
 
   return (
@@ -132,7 +155,7 @@ const CreateValidationRequestScreen = ({ route, navigation }) => {
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.warningTitle}>Action Critique</Text>
             <Text style={styles.warningText}>
-              Cette action nécessite la validation d'un Trésorier
+              Cette action necessite la validation d'un Tresorier
             </Text>
           </View>
         </View>
@@ -150,13 +173,24 @@ const CreateValidationRequestScreen = ({ route, navigation }) => {
         </View>
 
         <Text style={[styles.sectionTitle, { color: theme.text }]}>
-          Trésorier assigné
+          Tresorier assigne
         </Text>
 
-        {tresoriers.length === 0 ? (
+        {loadingTresoriers ? (
           <View style={[styles.infoCard, { backgroundColor: theme.surface }]}>
-            <Text style={{ color: theme.textSecondary }}>
-              Aucun trésorier disponible
+            <ActivityIndicator size="small" color={Colors.primaryDark} />
+            <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 10 }}>
+              Chargement des tresoriers...
+            </Text>
+          </View>
+        ) : tresoriers.length === 0 ? (
+          <View style={[styles.infoCard, { backgroundColor: theme.surface }]}>
+            <Ionicons name="alert-circle" size={32} color={Colors.dangerRed} style={{ alignSelf: 'center' }} />
+            <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 10 }}>
+              Aucun tresorier disponible
+            </Text>
+            <Text style={{ color: theme.placeholder, textAlign: 'center', marginTop: 5, fontSize: 12 }}>
+              Creez d'abord un compte tresorier via le menu principal
             </Text>
           </View>
         ) : (
@@ -198,21 +232,21 @@ const CreateValidationRequestScreen = ({ route, navigation }) => {
             styles.reasonInput,
             { backgroundColor: theme.surface, color: theme.text },
           ]}
-          placeholder="Expliquez pourquoi cette action est nécessaire (min 10 caractères)"
+          placeholder="Expliquez pourquoi cette action est necessaire (min 10 caracteres)"
           placeholderTextColor={theme.placeholder}
           value={reason}
           onChangeText={setReason}
           multiline
           numberOfLines={5}
           textAlignVertical="top"
-          editable={!initialReason} // Si reason fourni en param, désactiver
+          editable={!initialReason}
         />
 
         <TouchableOpacity
           style={[
             styles.submitButton,
             { backgroundColor: Colors.primaryDark },
-            loading && { opacity: 0.6 },
+            (loading || tresoriers.length === 0) && { opacity: 0.6 },
           ]}
           onPress={handleSubmit}
           disabled={loading || tresoriers.length === 0}

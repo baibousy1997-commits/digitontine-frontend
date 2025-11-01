@@ -45,8 +45,17 @@ const tontineService = {
    * @returns {Promise<{success: boolean, data?: any, error?: any}>}
    */
   async getTontineDetailsForMember(tontineId) {
-    //  UTILISER LE BON ENDPOINT depuis api.config.js
     return await get(API_CONFIG.ENDPOINTS.TONTINES.DETAILS_FOR_MEMBER(tontineId));
+  },
+
+  // ✅ NOUVELLE FONCTION : Récupérer les invitations d'une tontine
+  /**
+   * Récupérer les invitations d'une tontine (Admin uniquement)
+   * @param {string} tontineId - ID de la tontine
+   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   */
+  async getTontineInvitations(tontineId) {
+    return await get(API_CONFIG.ENDPOINTS.TONTINES.INVITATIONS(tontineId));
   },
 
   /**
@@ -97,17 +106,20 @@ const tontineService = {
       membresIds,
     });
   },
+
   /**
- * Inviter des membres à une tontine (avec notification + règlement)
- * @param {string} tontineId - ID de la tontine
- * @param {Array<string>} membresIds - Tableau des IDs des membres à inviter
- * @returns {Promise<{success: boolean, data?: any, error?: any}>}
- */
-async inviterMembres(tontineId, membresIds) {
-  return await post(`/tontines/${tontineId}/inviter-membres`, {
-    membresIds,
-  });
-},
+   * Inviter des membres à une tontine (avec notification + règlement)
+   * @param {string} tontineId - ID de la tontine
+   * @param {Array<string>} membresIds - Tableau des IDs des membres à inviter
+   * @param {string} reglementTexte - Règlement personnalisé (optionnel)
+   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   */
+  async inviterMembres(tontineId, membresIds, reglementTexte = null) {
+    return await post(`/tontines/${tontineId}/inviter-membres`, {
+      membresIds,
+      reglementTexte,
+    });
+  },
 
   /**
    * Retirer un membre d'une tontine

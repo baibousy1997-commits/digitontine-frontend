@@ -35,30 +35,29 @@ const DashboardAdminScreen = ({ navigation }) => {
     loadDashboard();
   }, []);
 
- const loadDashboard = async () => {
-  try {
-    setLoading(true);
-    
-    console.log('ADMIN - Chargement dashboard admin...');
-    
-    const result = await dashboardService.getDashboardAdmin();
-    if (result.success) {
-      console.log('Dashboard data:', result.data?.data);
-      setDashboardData(result.data?.data);
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
       
-      // ✅ NOUVEAU : Utiliser les tontines du dashboard
-      const tontinesList = result.data?.data?.tontines?.mesTontines || [];
-      console.log('Tontines chargees:', tontinesList.length);
-      setTontines(tontinesList);
-    } else {
-      console.error('Erreur dashboard:', result.error);
+      console.log('ADMIN - Chargement dashboard admin...');
+      
+      const result = await dashboardService.getDashboardAdmin();
+      if (result.success) {
+        console.log('Dashboard data:', result.data?.data);
+        setDashboardData(result.data?.data);
+        
+        const tontinesList = result.data?.data?.tontines?.mesTontines || [];
+        console.log('Tontines chargees:', tontinesList.length);
+        setTontines(tontinesList);
+      } else {
+        console.error('Erreur dashboard:', result.error);
+      }
+    } catch (error) {
+      console.error('Erreur chargement dashboard admin:', error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Erreur chargement dashboard admin:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -365,49 +364,41 @@ const DashboardAdminScreen = ({ navigation }) => {
           </View>
         </View>
 
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Actions rapides</Text>
-      {/*  GESTION UTILISATEURS AVEC VALIDATION */}
-<Text style={[styles.sectionTitle, { color: theme.text }]}>Gestion Utilisateurs</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Gestion Utilisateurs</Text>
 
-{/*  BOUTON 1 - Actions Critiques */}
-<TouchableOpacity
-  style={[styles.actionButton, { backgroundColor: '#FF6B6B' }]}
-  onPress={() => navigation.navigate('ManageUsers', { 
-    criticalActions: true 
-  })}
->
-  <MaterialCommunityIcons name="shield-account" size={24} color="#fff" />
-  <Text style={styles.actionButtonText}>Actions Critiques (Validation requise)</Text>
-</TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#FF6B6B' }]}
+          onPress={() => navigation.navigate('ManageUsers', { criticalActions: true })}
+        >
+          <MaterialCommunityIcons name="shield-account" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Actions Critiques (Validation requise)</Text>
+        </TouchableOpacity>
 
-{/*  BOUTON 2 - Mes demandes de validation */}
-<TouchableOpacity
-  style={[styles.actionButton, { backgroundColor: '#9C27B0' }]}
-  onPress={() => navigation.navigate('MyValidationRequests')}
->
-  <MaterialCommunityIcons name="clipboard-check" size={24} color="#fff" />
-  <Text style={styles.actionButtonText}>Mes demandes de validation</Text>
-</TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#9C27B0' }]}
+          onPress={() => navigation.navigate('MyValidationRequests')}
+        >
+          <MaterialCommunityIcons name="clipboard-check" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Mes demandes de validation</Text>
+        </TouchableOpacity>
 
-{/*  BOUTON 3 - Gérer les utilisateurs (GARDER UNE SEULE FOIS) */}
-<TouchableOpacity
-  style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
-  onPress={() => navigation.navigate('ManageUsers')}
->
-  <Ionicons name="people" size={24} color="#fff" />
-  <Text style={styles.actionButtonText}>Gérer les utilisateurs</Text>
-</TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
+          onPress={() => navigation.navigate('ManageUsers')}
+        >
+          <Ionicons name="people" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Gerer les utilisateurs</Text>
+        </TouchableOpacity>
 
-{/*  SUPPRIME LES LIGNES 320-325 (doublon "Gérer les utilisateurs") */}
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
+          onPress={() => navigation.navigate('CreateUser')}
+        >
+          <Ionicons name="person-add" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Creer un utilisateur</Text>
+        </TouchableOpacity>
 
-{/*  BOUTON 4 - Créer un utilisateur */}
-<TouchableOpacity
-  style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
-  onPress={() => navigation.navigate('CreateUser')}
->
-  <Ionicons name="person-add" size={24} color="#fff" />
-  <Text style={styles.actionButtonText}>Creer un utilisateur</Text>
-</TouchableOpacity>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Gestion Tontines</Text>
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: Colors.accentGreen }]}

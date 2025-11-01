@@ -17,13 +17,30 @@ import userService from '../../services/user/userService';
 import tontineService from '../../services/tontine/tontineService';
 
 const AddMembersScreen = ({ navigation, route }) => {
-  const { tontineId, tontineName, minMembers, maxMembers } = route.params;
+  const { 
+    tontineId, 
+    tontineName, 
+    minMembers, 
+    maxMembers,
+    montantCotisation,
+    frequence,
+    dateDebut,
+    tauxPenalite,
+    delaiGrace,
+    reglementAuto, // Règlement généré par backend
+  } = route.params;
 
   const [searchText, setSearchText] = useState('');
   const [membres, setMembres] = useState([]);
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  
+  const [showReglement, setShowReglement] = useState(false);
+  
+  //  SÉPARATION : Règlement auto (non modifiable) + Description (modifiable)
+  const [reglementAutoText] = useState(reglementAuto || ''); // Immuable
+  const [descriptionCustom, setDescriptionCustom] = useState(''); // Modifiable
 
   useEffect(() => {
     loadMembres();
@@ -31,46 +48,28 @@ const AddMembersScreen = ({ navigation, route }) => {
 
   const loadMembres = async () => {
     try {
-      console.log('Debut chargement des membres...');
-      
       const result = await userService.listUsers({ 
         role: 'membre', 
         isActive: true,
         limit: 100 
       });
 
-      console.log('Resultat complet:', JSON.stringify(result, null, 2));
-      console.log('Success:', result.success);
-      console.log('Structure data:', result.data);
-
       if (result.success && result.data?.data) {
         const membresList = Array.isArray(result.data.data?.data) 
           ? result.data.data.data 
           : (Array.isArray(result.data.data) ? result.data.data : []);
-        console.log('Nombre de membres:', membresList.length);
-        console.log('Liste des membres:', membresList);
         setMembres(membresList);
         
         if (membresList.length === 0) {
-          Alert.alert(
-            'Aucun membre',
-            'Aucun membre disponible. Creez d\'abord des comptes membres.',
-            [{ text: 'OK' }]
-          );
+          Alert.alert('Aucun membre', 'Créez d\'abord des comptes membres.');
         }
       } else {
-        console.log('Pas de membres trouves');
-        console.log('Structure recue:', result);
         setMembres([]);
-        Alert.alert('Info', 'Aucun membre disponible');
       }
     } catch (error) {
       console.error('Erreur chargement membres:', error);
-      console.error('Stack:', error.stack);
-      Alert.alert('Erreur', 'Une erreur est survenue lors du chargement');
       setMembres([]);
     } finally {
-      console.log('Fin chargement - loading = false');
       setLoading(false);
     }
   };
@@ -85,64 +84,57 @@ const AddMembersScreen = ({ navigation, route }) => {
     });
   };
 
- const handleAddMembers = async () => {
-  if (selectedMembers.length === 0) {
+  const handleShowReglement = () => {
+    if (selectedMembers.length === 0) {
+      Alert.alert('Aucun membre sélectionné', 'Sélectionnez au moins 1 membre');
+      return;
+    }
+    setShowReglement(true);
+  };
+
+  const handleSendInvitations = async () => {
+    //  Combiner règlement auto + description custom
+    const reglementComplet = descriptionCustom.trim() 
+      ? `${reglementAutoText}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n RÈGLES COMPLÉMENTAIRES\n\n${descriptionCustom.trim()}`
+      : reglementAutoText;
+
     Alert.alert(
-      'Aucun membre sélectionné',
-      'Vous devez sélectionner au moins 1 membre'
-    );
-    return;
-  }
-
-  Alert.alert(
-    'Confirmer l\'invitation',
-    `Envoyer une invitation à ${selectedMembers.length} membre(s) ?\n\n` +
-    `Ils recevront le règlement complet de la tontine et devront accepter avant de rejoindre.`,
-    [
-      { text: 'Annuler', style: 'cancel' },
-      { 
-        text: 'Envoyer invitations', 
-        onPress: async () => {
-          setSubmitting(true);
-          try {
-            console.log(' Envoi invitations:', selectedMembers);
-            
-            //  NOUVELLE MÉTHODE : inviterMembres au lieu de addMembers
-            const result = await tontineService.inviterMembres(tontineId, selectedMembers);
-            console.log('Résultat invitations:', result);
-
-            if (result.success) {
-              const invitationsEnvoyees = result.data?.data?.invitationsEnvoyees || [];
-              const erreurs = result.data?.data?.erreurs || [];
-
-              let message = `${invitationsEnvoyees.length} invitation(s) envoyée(s) avec succès.\n\n`;
-              message += `Les membres recevront une notification avec le règlement complet de la tontine.`;
-
-              if (erreurs.length > 0) {
-                message += `\n\n ${erreurs.length} erreur(s) rencontrée(s).`;
-              }
-
-              Alert.alert(
-                'Invitations envoyées',
-                message,
-                [{ text: 'OK', onPress: () => navigation.navigate('Accueil') }]
+      ' Confirmer l\'envoi',
+      `Envoyer ${selectedMembers.length} invitation(s) avec ce règlement ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { 
+          text: 'Envoyer', 
+          onPress: async () => {
+            setSubmitting(true);
+            try {
+              const result = await tontineService.inviterMembres(
+                tontineId, 
+                selectedMembers,
+                reglementComplet //  Envoyer le règlement complet
               );
-            } else {
-              const errorMsg = result.error?.message || 'Impossible d\'envoyer les invitations';
-              console.error('Erreur invitations:', result.error);
-              Alert.alert('Erreur', errorMsg);
+
+              if (result.success) {
+                const invitationsEnvoyees = result.data?.data?.invitationsEnvoyees || [];
+                Alert.alert(
+                  ' Invitations envoyées',
+                  `${invitationsEnvoyees.length} invitation(s) envoyée(s)`,
+                  [{ text: 'OK', onPress: () => navigation.navigate('Accueil') }]
+                );
+              } else {
+                Alert.alert(' Erreur', result.error?.message || 'Erreur envoi');
+              }
+            } catch (error) {
+              console.error('Exception invitations:', error);
+              Alert.alert(' Erreur', 'Une erreur est survenue');
+            } finally {
+              setSubmitting(false);
             }
-          } catch (error) {
-            console.error('Exception invitations:', error);
-            Alert.alert('Erreur', 'Une erreur est survenue lors de l\'envoi');
-          } finally {
-            setSubmitting(false);
           }
         }
-      }
-    ]
-  );
-};
+      ]
+    );
+  };
 
   const filteredMembres = membres.filter(membre => {
     const fullName = `${membre.prenom} ${membre.nom}`.toLowerCase();
@@ -156,10 +148,7 @@ const AddMembersScreen = ({ navigation, route }) => {
 
     return (
       <TouchableOpacity
-        style={[
-          styles.memberCard,
-          isSelected && styles.memberCardSelected
-        ]}
+        style={[styles.memberCard, isSelected && styles.memberCardSelected]}
         onPress={() => toggleMember(item.id)}
       >
         <View style={styles.memberAvatar}>
@@ -174,10 +163,7 @@ const AddMembersScreen = ({ navigation, route }) => {
           <Text style={styles.memberPhone}>{item.numeroTelephone}</Text>
         </View>
 
-        <View style={[
-          styles.checkbox,
-          isSelected && styles.checkboxSelected
-        ]}>
+        <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
           {isSelected && <Ionicons name="checkmark" size={20} color="#fff" />}
         </View>
       </TouchableOpacity>
@@ -193,74 +179,169 @@ const AddMembersScreen = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Ajouter des membres</Text>
-        <Text style={styles.subtitle}>
-          Selectionnez les membres a ajouter a "{tontineName}"
-        </Text>
-
-        <Text style={styles.selectionInfo}>
-          {selectedMembers.length} membre(s) selectionne(s)
-        </Text>
-
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputWrapper}>
-            <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Rechercher par nom ou email"
-              placeholderTextColor="#999"
-              value={searchText}
-              onChangeText={setSearchText}
-            />
-          </View>
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#4A9B8E" />
-            <Text style={styles.loadingText}>Chargement des membres...</Text>
-          </View>
-        ) : filteredMembres.length === 0 ? (
-          <View style={styles.emptyStateContainer}>
-            <Ionicons name="people-outline" size={80} color="#ccc" />
-            <Text style={styles.emptyStateText}>
-              {searchText ? 'Aucun membre trouve' : 'Aucun membre disponible'}
+      {!showReglement ? (
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  ÉTAPE 1 : SÉLECTION DES MEMBRES
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        <>
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <Text style={styles.title}>Ajouter des membres</Text>
+            <Text style={styles.subtitle}>
+              Sélectionnez les membres à ajouter à "{tontineName}"
             </Text>
-            {!searchText && membres.length === 0 && (
-              <Text style={[styles.emptyStateText, { fontSize: 14, marginTop: 10 }]}>
-                Creez d'abord des comptes membres
-              </Text>
+
+            <Text style={styles.selectionInfo}>
+              {selectedMembers.length} membre(s) sélectionné(s)
+            </Text>
+
+            <View style={styles.searchContainer}>
+              <View style={styles.searchInputWrapper}>
+                <Ionicons name="search" size={20} color="#999" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Rechercher par nom ou email"
+                  placeholderTextColor="#999"
+                  value={searchText}
+                  onChangeText={setSearchText}
+                />
+              </View>
+            </View>
+
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#4A9B8E" />
+                <Text style={styles.loadingText}>Chargement...</Text>
+              </View>
+            ) : filteredMembres.length === 0 ? (
+              <View style={styles.emptyStateContainer}>
+                <Ionicons name="people-outline" size={80} color="#ccc" />
+                <Text style={styles.emptyStateText}>
+                  {searchText ? 'Aucun membre trouvé' : 'Aucun membre disponible'}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredMembres}
+                renderItem={renderMember}
+                keyExtractor={(item) => item.id}
+                scrollEnabled={false}
+              />
             )}
-          </View>
-        ) : (
-          <FlatList
-            data={filteredMembres}
-            renderItem={renderMember}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-          />
-        )}
-      </ScrollView>
+          </ScrollView>
 
-      <View style={styles.bottomContainer}>
-        <TouchableOpacity 
-          style={[
-            styles.continueButton,
-            (selectedMembers.length === 0 || submitting) && styles.continueButtonDisabled
-          ]}
-          onPress={handleAddMembers}
-          disabled={selectedMembers.length === 0 || submitting}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#000" />
-          ) : (
-            <Text style={styles.continueButtonText}>
-              Ajouter {selectedMembers.length} membre(s)
+          <View style={styles.bottomContainer}>
+            <TouchableOpacity 
+              style={[styles.continueButton, selectedMembers.length === 0 && styles.continueButtonDisabled]}
+              onPress={handleShowReglement}
+              disabled={selectedMembers.length === 0}
+            >
+              <Text style={styles.continueButtonText}>
+                 Voir le règlement ({selectedMembers.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : (
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        //  ÉTAPE 2 : AFFICHAGE RÈGLEMENT + MODIFICATION
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          <Text style={styles.title}> Règlement de la tontine</Text>
+          <Text style={styles.subtitle}>
+            Le règlement automatique est généré. Vous pouvez ajouter des règles complémentaires.
+          </Text>
+
+          {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+          {/*  SECTION 1 : RÈGLEMENT AUTO (LECTURE SEULE) */}
+          {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="lock-closed" size={20} color="#6B7280" />
+              <Text style={styles.sectionTitle}>
+                Règlement automatique (non modifiable)
+              </Text>
+            </View>
+            
+            <ScrollView 
+              style={styles.reglementReadOnly}
+              nestedScrollEnabled={true}
+            >
+              <Text style={styles.reglementReadOnlyText}>
+                {reglementAutoText || 'Aucun règlement généré'}
+              </Text>
+            </ScrollView>
+
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle" size={20} color="#3B82F6" />
+              <Text style={styles.infoText}>
+                Ce règlement contient les paramètres techniques : cotisation ({montantCotisation} FCFA), 
+                fréquence ({frequence}), pénalités ({tauxPenalite}%, délai {delaiGrace}j).
+              </Text>
+            </View>
+          </View>
+
+          {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+          {/*  SECTION 2 : DESCRIPTION CUSTOM (MODIFIABLE) */}
+          {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="create" size={20} color="#10B981" />
+              <Text style={styles.sectionTitle}>
+                Règles complémentaires (optionnel)
+              </Text>
+            </View>
+
+            <TextInput
+              style={styles.descriptionInput}
+              value={descriptionCustom}
+              onChangeText={setDescriptionCustom}
+              multiline
+              numberOfLines={10}
+              textAlignVertical="top"
+              placeholder="Exemple :
+• Présence obligatoire aux réunions mensuelles
+• Pas de prêt d'argent entre membres pendant la tontine
+• Les décisions se prennent à la majorité
+• Tout retard doit être signalé 24h à l'avance"
+              placeholderTextColor="#9CA3AF"
+            />
+
+            <Text style={styles.helperText}>
+               Ces règles seront ajoutées à la fin du règlement automatique
             </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+          </View>
+
+          {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+          {/*  BOUTONS D'ACTION */}
+          {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+          <View style={styles.bottomContainer}>
+            <TouchableOpacity 
+              style={[styles.continueButton, { backgroundColor: '#6B7280', marginBottom: 10 }]}
+              onPress={() => setShowReglement(false)}
+            >
+              <Ionicons name="arrow-back" size={20} color="#fff" />
+              <Text style={styles.continueButtonText}>Retour sélection</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.continueButton}
+              onPress={handleSendInvitations}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#000" />
+              ) : (
+                <>
+                  <Ionicons name="send" size={20} color="#000" />
+                  <Text style={styles.continueButtonText}>
+                    Envoyer {selectedMembers.length} invitation(s)
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 };
@@ -276,6 +357,12 @@ AddMembersScreen.propTypes = {
       tontineName: PropTypes.string.isRequired,
       minMembers: PropTypes.number.isRequired,
       maxMembers: PropTypes.number.isRequired,
+      montantCotisation: PropTypes.number,
+      frequence: PropTypes.string,
+      dateDebut: PropTypes.string,
+      tauxPenalite: PropTypes.number,
+      delaiGrace: PropTypes.number,
+      reglementAuto: PropTypes.string,
     }).isRequired,
   }).isRequired,
 };

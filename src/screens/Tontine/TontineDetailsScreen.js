@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuthContext } from '../../context/AuthContext';
 import tontineService from '../../services/tontine/tontineService';
+import notificationService from '../../services/notification/notificationService';
 import tirageService from '../../services/tirage/tirageService';
 import Colors from '../../constants/colors';
 
@@ -26,6 +27,8 @@ const TontineDetailsScreen = ({ navigation, route }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [tontine, setTontine] = useState(null);
   const [tirages, setTirages] = useState([]);
+  const [invitations, setInvitations] = useState([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(true);
 
   useEffect(() => {
     loadData();
@@ -51,7 +54,6 @@ const TontineDetailsScreen = ({ navigation, route }) => {
       if (tontineResult.success) {
         const tontineData = tontineResult.data?.data?.tontine;
         
-        // CORRECTION : Calculer le nombre de membres reel
         if (tontineData && tontineData.membres) {
           tontineData.nombreMembres = tontineData.membres.length;
           console.log('Nombre de membres calcule:', tontineData.nombreMembres);
@@ -68,7 +70,43 @@ const TontineDetailsScreen = ({ navigation, route }) => {
     } finally {
       setLoading(false);
     }
+
+    //  CHARGER LES INVITATIONS
+    await loadInvitations();
   };
+
+  //  NOUVELLE FONCTION : Charger les invitations
+//  REMPLACER la fonction loadInvitations (ligne ~56)
+
+const loadInvitations = async () => {
+  try {
+    setLoadingInvitations(true);
+    console.log('🔍 Chargement des invitations pour tontineId:', tontineId);
+
+    //  NOUVELLE MÉTHODE : Appeler l'endpoint backend spécifique
+    const invitationsResult = await tontineService.getTontineInvitations(tontineId);
+
+    if (invitationsResult.success && invitationsResult.data?.data?.invitations) {
+      const invitationsData = invitationsResult.data.data.invitations;
+      console.log(` ${invitationsData.length} invitation(s) trouvée(s)`);
+      
+      //  Log détaillé pour debug
+      invitationsData.forEach(inv => {
+        console.log(`  - ${inv.memberName} (${inv.memberEmail}) : ${inv.statut}`);
+      });
+      
+      setInvitations(invitationsData);
+    } else {
+      console.log('ℹ Aucune invitation trouvée');
+      setInvitations([]);
+    }
+  } catch (error) {
+    console.error(' Erreur chargement invitations:', error);
+    setInvitations([]);
+  } finally {
+    setLoadingInvitations(false);
+  }
+};
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -76,9 +114,8 @@ const TontineDetailsScreen = ({ navigation, route }) => {
     setRefreshing(false);
   };
 
-  // FONCTION HELPER : Extraire les infos du membre de facon robuste
+  //  Helper pour extraire les infos du membre
   const getMemberInfo = (membre) => {
-    // Cas 1: Backend a envoye directement nom/email dans membre
     if (membre.nom && membre.email) {
       return {
         nom: membre.nom || 'Utilisateur',
@@ -87,7 +124,6 @@ const TontineDetailsScreen = ({ navigation, route }) => {
       };
     }
 
-    // Cas 2: userId est un objet (populated)
     if (membre.userId && typeof membre.userId === 'object') {
       const userObj = membre.userId;
       return {
@@ -97,12 +133,47 @@ const TontineDetailsScreen = ({ navigation, route }) => {
       };
     }
 
-    // Cas 3: Fallback
     return {
       nom: 'Membre',
       email: 'N/A',
       initial: 'M',
     };
+  };
+
+  //  Helper pour obtenir la couleur du statut d'invitation
+  const getInvitationStatusColor = (actionTaken) => {
+    switch (actionTaken) {
+      case 'accepted':
+        return Colors.accentGreen;
+      case 'refused':
+        return Colors.danger || '#E74C3C';
+      default: // null (en attente)
+        return Colors.accentYellow || '#F39C12';
+    }
+  };
+
+  //  Helper pour obtenir l'icône du statut
+  const getInvitationStatusIcon = (actionTaken) => {
+    switch (actionTaken) {
+      case 'accepted':
+        return 'checkmark-circle';
+      case 'refused':
+        return 'close-circle';
+      default:
+        return 'time';
+    }
+  };
+
+  //  Helper pour obtenir le texte du statut
+  const getInvitationStatusText = (actionTaken) => {
+    switch (actionTaken) {
+      case 'accepted':
+        return 'Acceptée';
+      case 'refused':
+        return 'Refusée';
+      default:
+        return 'En attente';
+    }
   };
 
   if (loading) {
@@ -121,19 +192,6 @@ const TontineDetailsScreen = ({ navigation, route }) => {
     );
   }
 
-  const isMembre = tontine.membres?.some(m => {
-    const membreUserId = m.userId?._id || m.userId;
-    return membreUserId?.toString() === user?.id?.toString();
-  });
-  
-  const monMembre = tontine.membres?.find(m => {
-    const membreUserId = m.userId?._id || m.userId;
-    return membreUserId?.toString() === user?.id?.toString();
-  });
-  
-  const aiDejaGagne = monMembre?.aGagne || false;
-
-  // CORRECTION : Calculer le nombre reel de membres
   const nombreMembresReel = tontine.membres?.length || 0;
 
   return (
@@ -144,7 +202,7 @@ const TontineDetailsScreen = ({ navigation, route }) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={26} color={theme.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Details</Text>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>Détails</Text>
         <TouchableOpacity onPress={loadData}>
           <Ionicons name="refresh" size={26} color={theme.text} />
         </TouchableOpacity>
@@ -183,7 +241,7 @@ const TontineDetailsScreen = ({ navigation, route }) => {
           </View>
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>
-              Frequence
+              Fréquence
             </Text>
             <Text style={[styles.infoValue, { color: theme.text }]}>
               {tontine.frequence}
@@ -199,7 +257,7 @@ const TontineDetailsScreen = ({ navigation, route }) => {
           </View>
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>
-              Date debut
+              Date début
             </Text>
             <Text style={[styles.infoValue, { color: theme.text }]}>
               {new Date(tontine.dateDebut).toLocaleDateString('fr-FR')}
@@ -207,7 +265,81 @@ const TontineDetailsScreen = ({ navigation, route }) => {
           </View>
         </View>
 
-        {/* CORRECTION LISTE MEMBRES */}
+       
+
+{/* SECTION INVITATIONS EN ATTENTE - ADMIN ONLY */}
+{(user?.role === 'admin' || user?.role === 'administrateur') && (
+  <View style={[styles.card, { backgroundColor: theme.surface }]}>
+    <View style={styles.sectionHeaderWithBadge}>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>
+        Invitations
+      </Text>
+   {!loadingInvitations && (
+  <View style={[styles.badge, { backgroundColor: Colors.primaryDark }]}>
+    <Text style={styles.badgeText}>{invitations.length}</Text>
+  </View>
+)}
+    </View>
+
+    {loadingInvitations ? (
+      <ActivityIndicator size="small" color={Colors.primaryDark} />
+    ) : invitations.length > 0 ? (
+      invitations.map((invitation, index) => {
+        const statusColor = getInvitationStatusColor(invitation.statut);
+        const statusIcon = getInvitationStatusIcon(invitation.statut);
+        const statusText = getInvitationStatusText(invitation.statut);
+
+        return (
+          <View 
+            key={invitation.notificationId || index} 
+            style={[
+              styles.invitationRow,
+              { borderLeftColor: statusColor }
+            ]}
+          >
+            {/* Avatar + Infos */}
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.invitationMemberName, { color: theme.text }]}>
+                {invitation.memberName}
+              </Text>
+              <Text style={[styles.invitationMemberEmail, { color: theme.textSecondary }]}>
+                {invitation.memberEmail}
+              </Text>
+              <Text style={[styles.invitationDate, { color: theme.placeholder }]}>
+                Envoyée le {new Date(invitation.dateEnvoyee).toLocaleDateString('fr-FR')}
+              </Text>
+              {invitation.dateResponse && (
+                <Text style={[styles.invitationDate, { color: theme.placeholder }]}>
+                  Répondu le {new Date(invitation.dateResponse).toLocaleDateString('fr-FR')}
+                </Text>
+              )}
+            </View>
+
+            {/* Statut */}
+            <View style={{ alignItems: 'center', gap: 5 }}>
+              <Ionicons 
+                name={statusIcon} 
+                size={24} 
+                color={statusColor} 
+              />
+              <Text style={[styles.statusText, { color: statusColor }]}>
+                {statusText}
+              </Text>
+            </View>
+          </View>
+        );
+      })
+    ) : (
+      <View style={styles.emptyState}>
+        <Ionicons name="mail-open-outline" size={48} color={theme.textSecondary} />
+        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+          Aucune invitation pour le moment
+        </Text>
+      </View>
+    )}
+  </View>
+)}
+        {/* LISTE MEMBRES ACCEPTÉS */}
         <View style={[styles.card, { backgroundColor: theme.surface }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
             Membres ({nombreMembresReel})
@@ -244,30 +376,29 @@ const TontineDetailsScreen = ({ navigation, route }) => {
           )}
         </View>
 
-        {/* CORRECTION Historique tirages */}
+        {/* Historique tirages */}
         {tirages.length > 0 && (
           <View style={[styles.card, { backgroundColor: theme.surface }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Historique tirages ({tirages.length})
+               Historique tirages ({tirages.length})
             </Text>
             {tirages.map((tirage, index) => {
-              // Extraire le nom du beneficiaire de facon robuste
               const getBeneficiaireName = () => {
                 if (tirage.beneficiaireId) {
                   if (typeof tirage.beneficiaireId === 'object') {
                     return tirage.beneficiaireId.nomComplet || 
                            `${tirage.beneficiaireId.prenom || ''} ${tirage.beneficiaireId.nom || ''}`.trim() ||
-                           'Beneficiaire';
+                           'Bénéficiaire';
                   }
                 }
                 if (tirage.beneficiaire) {
                   if (typeof tirage.beneficiaire === 'object') {
                     return tirage.beneficiaire.nomComplet || 
                            `${tirage.beneficiaire.prenom || ''} ${tirage.beneficiaire.nom || ''}`.trim() ||
-                           'Beneficiaire';
+                           'Bénéficiaire';
                   }
                 }
-                return 'Beneficiaire inconnu';
+                return 'Bénéficiaire inconnu';
               };
 
               return (
@@ -326,6 +457,42 @@ const styles = StyleSheet.create({
   },
   statutText: { fontSize: 12, color: '#fff', fontWeight: '600' },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15 },
+  
+  //  Styles pour les invitations
+  sectionHeaderWithBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 30,
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  invitationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+  },
+  invitationMemberName: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
+  invitationMemberEmail: { fontSize: 12, marginBottom: 3 },
+  invitationDate: { fontSize: 11 },
+  statusText: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
+
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

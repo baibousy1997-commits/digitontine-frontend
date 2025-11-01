@@ -4,7 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useAuthContext } from '../context/AuthContext';
 import { ActivityIndicator, View, Text } from 'react-native';
 
-//  IMPORTS VALIDATION - PLUS DE DOUBLON
+// IMPORTS VALIDATION
 import CreateValidationRequestScreen from '../screens/Validation/CreateValidationRequestScreen';
 import PendingValidationsScreen from '../screens/Validation/PendingValidationsScreen';
 import MyValidationRequestsScreen from '../screens/Validation/MyValidationRequestsScreen';
@@ -25,6 +25,7 @@ import AccountScreen from '../screens/Account/AccountScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import ChangePasswordScreen from '../screens/Settings/ChangePasswordScreen';
 import CreateUsersScreen from '../screens/Users/CreateUsersScreen';
+import ManageUsersScreen from '../screens/Users/ManageUsersScreen';
 
 // Tontine Screens
 import ChooseTontineActionScreen from '../screens/Tontine/ChooseTontineActionScreen';
@@ -33,6 +34,7 @@ import AddMembersScreen from '../screens/Tontine/AddMembersScreen';
 import MyTontinesScreen from '../screens/Tontine/MyTontinesScreen';
 import ManageTontinesScreen from '../screens/Tontine/ManageTontinesScreen';
 import TontineDetailsScreen from '../screens/Tontine/TontineDetailsScreen';
+import ReglementTontineScreen from '../screens/Tontine/ReglementTontineScreen';
 
 // Transaction Screens
 import MyTransactionsScreen from '../screens/Transaction/MyTransactionsScreen';
@@ -70,8 +72,10 @@ const MainStack = () => (
     <Stack.Screen name="Settings" component={SettingsScreen} />
     <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     <Stack.Screen name="CreateUser" component={CreateUsersScreen} />
+    <Stack.Screen name="ManageUsers" component={ManageUsersScreen} />
     <Stack.Screen name="ChooseTontineAction" component={ChooseTontineActionScreen} />
     <Stack.Screen name="CreateTontine" component={CreateTontineScreen} />
+    <Stack.Screen name="ReglementTontine" component={ReglementTontineScreen} />
     <Stack.Screen name="AddMembers" component={AddMembersScreen} />
     <Stack.Screen name="MyTontines" component={MyTontinesScreen} />
     <Stack.Screen name="ManageTontines" component={ManageTontinesScreen} />
@@ -80,24 +84,9 @@ const MainStack = () => (
     <Stack.Screen name="TransactionsValidation" component={TransactionsValidationScreen} />
     <Stack.Screen name="CreateTransaction" component={CreateTransactionScreen} />
     <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
-    
-    {/*  VALIDATION SCREENS */}
-    <Stack.Screen 
-      name="CreateValidationRequest" 
-      component={CreateValidationRequestScreen} 
-      options={{ headerShown: false }}
-    />
-    <Stack.Screen 
-      name="MyValidationRequests" 
-      component={MyValidationRequestsScreen} 
-      options={{ headerShown: false }}
-    />
-    <Stack.Screen 
-      name="PendingValidations" 
-      component={PendingValidationsScreen} 
-      options={{ headerShown: false }}
-    />
-    
+    <Stack.Screen name="CreateValidationRequest" component={CreateValidationRequestScreen} />
+    <Stack.Screen name="MyValidationRequests" component={MyValidationRequestsScreen} />
+    <Stack.Screen name="PendingValidations" component={PendingValidationsScreen} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
     <Stack.Screen name="Wallet" component={WalletPlaceholder} />
   </Stack.Navigator>

@@ -86,6 +86,7 @@ const API_CONFIG = {
       DETAILS: (tontineId) => `/tontines/${tontineId}`,
       DETAILS_FOR_MEMBER: (tontineId) => `/tontines/${tontineId}/details`, 
       MY_TONTINES: '/tontines/me/tontines',
+      INVITATIONS: (tontineId) => `/tontines/${tontineId}/invitations`,
       UPDATE: (tontineId) => `/tontines/${tontineId}`,
       DELETE: (tontineId) => `/tontines/${tontineId}`,
       ADD_MEMBERS: (tontineId) => `/tontines/${tontineId}/membres`,

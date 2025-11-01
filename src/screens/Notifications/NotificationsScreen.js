@@ -78,39 +78,77 @@ const NotificationsScreen = ({ navigation }) => {
     }
   };
 
+//  REMPLACER la fonction handleAction complète (lignes 58-113)
+
 const handleAction = async (notification, action) => {
   try {
     setActionLoading(prev => ({ ...prev, [notification._id]: true }));
 
-    // ✅ CAS 1 : Invitation tontine (nouveau système)
+    // CAS 1 : Invitation tontine
     if (notification.type === 'TONTINE_INVITATION') {
       const accepter = action === 'accepted';
-      const result = accepter 
-        ? await notificationService.acceptInvitation(notification._id)
-        : await notificationService.refuseInvitation(notification._id);
 
-      if (result.success) {
+      //  AFFICHER LE RÈGLEMENT COMPLET AVANT ACCEPTATION
+      if (accepter) {
         Alert.alert(
-          accepter ? '✅ Bienvenue !' : '❌ Invitation refusée',
-          accepter 
-            ? `Vous avez rejoint "${notification.data?.tontineId?.nom || 'la tontine'}" avec succès.\n\nVous recevrez les notifications de tirage.`
-            : 'Invitation déclinée.',
-          [{ text: 'OK' }]
-        );
+          ' Règlement de la tontine',
+          notification.message || 'Aucun règlement disponible',
+          [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Accepter le règlement',
+              onPress: async () => {
+                const result = await notificationService.acceptInvitation(notification._id);
 
-        // ✅ Retirer la notification de la liste
-        setNotifications(prev => prev.filter(n => n._id !== notification._id));
+                if (result.success) {
+                  Alert.alert(
+                    ' Bienvenue !',
+                    `Vous avez rejoint "${notification.data?.tontineId?.nom || 'la tontine'}" avec succès.\n\nVous recevrez les notifications de tirage.`,
+                    [{ text: 'OK' }]
+                  );
+
+                  //  Retirer la notification de la liste
+                  setNotifications(prev => prev.filter(n => n._id !== notification._id));
+                } else {
+                  Alert.alert('Erreur', result.error || 'Impossible d\'accepter l\'invitation');
+                }
+              }
+            }
+          ],
+          { cancelable: true }
+        );
       } else {
-        Alert.alert('Erreur', result.error || 'Impossible de traiter l\'invitation');
+        //  REFUS : Confirmation
+        Alert.alert(
+          ' Refuser l\'invitation',
+          'Êtes-vous sûr de vouloir refuser cette invitation ?',
+          [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Confirmer le refus',
+              style: 'destructive',
+              onPress: async () => {
+                const result = await notificationService.refuseInvitation(notification._id);
+
+                if (result.success) {
+                  Alert.alert(' Invitation refusée', 'Invitation déclinée.', [{ text: 'OK' }]);
+                  setNotifications(prev => prev.filter(n => n._id !== notification._id));
+                } else {
+                  Alert.alert('Erreur', result.error || 'Impossible de refuser l\'invitation');
+                }
+              }
+            }
+          ]
+        );
       }
     } 
-    // ✅ CAS 2 : Notification tirage (système existant)
-    else {
+    //  CAS 2 : Notification tirage (opt-in)
+    else if (notification.type === 'TIRAGE_NOTIFICATION') {
       const result = await notificationService.takeAction(notification._id, action);
 
       if (result.success) {
         Alert.alert(
-          action === 'accepted' ? 'Confirmation' : 'Refus enregistré',
+          action === 'accepted' ? ' Confirmation' : ' Refus enregistré',
           action === 'accepted' 
             ? 'Vous participez au prochain tirage' 
             : 'Vous ne participerez pas au tirage',
@@ -127,6 +165,10 @@ const handleAction = async (notification, action) => {
       } else {
         Alert.alert('Erreur', result.error || 'Impossible d\'enregistrer votre choix');
       }
+    }
+    //  CAS 3 : Autres types de notifications
+    else {
+      Alert.alert('Info', 'Type de notification non géré');
     }
   } catch (error) {
     console.error('Erreur action:', error);
