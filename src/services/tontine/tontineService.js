@@ -1,69 +1,33 @@
-// src/services/tontine/tontineService.js
-/**
- * Service de gestion des tontines
- * Création, modification, activation, membres, etc.
- */
+// src/services/tontine/tontineService.js - ✅ VERSION CORRIGÉE
 
 import { get, post, put, del } from '../api/apiClient';
 import API_CONFIG from '../../config/api.config';
-import tokenManager from '../../utils/tokenManager';
 
 const tontineService = {
   // ========================================
   // CRÉATION ET MODIFICATION
   // ========================================
 
-  /**
-   * Créer une nouvelle tontine (Admin uniquement)
-   * @param {object} data - Données de la tontine
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async createTontine(data) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.CREATE, data);
   },
 
-  /**
-   * Mes tontines (Membre/Trésorier)
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async mesTontines() {
     return await get(API_CONFIG.ENDPOINTS.TONTINES.MY_TONTINES);
   },
 
-  /**
-   * Obtenir les détails d'une tontine (Admin uniquement)
-   * @param {string} tontineId - ID de la tontine
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async getTontineDetails(tontineId) {
     return await get(API_CONFIG.ENDPOINTS.TONTINES.DETAILS(tontineId));
   },
 
-  /**
-   * CORRECTION : Obtenir les détails d'une tontine (pour Membre/Trésorier)
-   * @param {string} tontineId - ID de la tontine
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async getTontineDetailsForMember(tontineId) {
     return await get(API_CONFIG.ENDPOINTS.TONTINES.DETAILS_FOR_MEMBER(tontineId));
   },
 
-  // ✅ NOUVELLE FONCTION : Récupérer les invitations d'une tontine
-  /**
-   * Récupérer les invitations d'une tontine (Admin uniquement)
-   * @param {string} tontineId - ID de la tontine
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async getTontineInvitations(tontineId) {
     return await get(API_CONFIG.ENDPOINTS.TONTINES.INVITATIONS(tontineId));
   },
 
-  /**
-   * Modifier une tontine
-   * @param {string} tontineId - ID de la tontine
-   * @param {object} data - Données à modifier
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async updateTontine(tontineId, data) {
     return await put(API_CONFIG.ENDPOINTS.TONTINES.UPDATE(tontineId), data);
   },
@@ -72,11 +36,6 @@ const tontineService = {
   // LISTE ET DÉTAILS
   // ========================================
 
-  /**
-   * Liste des tontines avec filtres et pagination
-   * @param {object} params - Paramètres de recherche
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async listTontines(params = {}) {
     const queryParams = new URLSearchParams();
     
@@ -95,25 +54,12 @@ const tontineService = {
   // GESTION DES MEMBRES
   // ========================================
 
-  /**
-   * Ajouter des membres à une tontine
-   * @param {string} tontineId - ID de la tontine
-   * @param {Array<string>} membresIds - Tableau des IDs des membres à ajouter
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async addMembers(tontineId, membresIds) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.ADD_MEMBERS(tontineId), {
       membresIds,
     });
   },
 
-  /**
-   * Inviter des membres à une tontine (avec notification + règlement)
-   * @param {string} tontineId - ID de la tontine
-   * @param {Array<string>} membresIds - Tableau des IDs des membres à inviter
-   * @param {string} reglementTexte - Règlement personnalisé (optionnel)
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async inviterMembres(tontineId, membresIds, reglementTexte = null) {
     return await post(`/tontines/${tontineId}/inviter-membres`, {
       membresIds,
@@ -121,22 +67,10 @@ const tontineService = {
     });
   },
 
-  /**
-   * Retirer un membre d'une tontine
-   * @param {string} tontineId - ID de la tontine
-   * @param {string} userId - ID du membre à retirer
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async removeMember(tontineId, userId) {
     return await del(API_CONFIG.ENDPOINTS.TONTINES.REMOVE_MEMBER(tontineId, userId));
   },
 
-  /**
-   * Confirmer participation au prochain tirage (Membre)
-   * @param {string} tontineId - ID de la tontine
-   * @param {boolean} participe - true pour participer, false pour ne pas participer
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async optInForTirage(tontineId, participe = true) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.OPT_IN_TIRAGE(tontineId), {
       participe,
@@ -144,44 +78,42 @@ const tontineService = {
   },
 
   // ========================================
-  // ACTIONS SUR LES TONTINES
+  // ACTIONS SUR LES TONTINES - ✅ CORRIGÉ
   // ========================================
 
   /**
-   * Activer une tontine (Admin uniquement)
-   * @param {string} tontineId - ID de la tontine
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   * ✅ Activer une tontine (Admin uniquement) - ACTION DIRECTE
    */
   async activateTontine(tontineId) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.ACTIVATE(tontineId));
   },
 
   /**
-   * Bloquer une tontine (Admin uniquement)
+   * ✅ Bloquer une tontine (Admin uniquement) - AVEC VALIDATION
    * @param {string} tontineId - ID de la tontine
    * @param {string} motif - Motif du blocage
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   * @param {string} validationRequestId - ID de la validation acceptée
    */
-  async blockTontine(tontineId, motif) {
+  async blockTontine(tontineId, motif, validationRequestId) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.BLOCK(tontineId), {
       motif,
+      validationRequestId, // ✅ AJOUTÉ
     });
   },
 
   /**
-   * Débloquer/Réactiver une tontine (Admin uniquement)
+   * ✅ Débloquer/Réactiver une tontine (Admin uniquement) - AVEC VALIDATION
    * @param {string} tontineId - ID de la tontine
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   * @param {string} validationRequestId - ID de la validation acceptée
    */
-  async unblockTontine(tontineId) {
-    return await post(API_CONFIG.ENDPOINTS.TONTINES.UNBLOCK(tontineId));
+  async unblockTontine(tontineId, validationRequestId) {
+    return await post(API_CONFIG.ENDPOINTS.TONTINES.UNBLOCK(tontineId), {
+      validationRequestId, // ✅ AJOUTÉ
+    });
   },
 
   /**
-   * Clôturer une tontine (Admin uniquement)
-   * @param {string} tontineId - ID de la tontine
-   * @param {boolean} genererRapport - Générer un rapport final (défaut: true)
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   * ✅ Clôturer une tontine (Admin uniquement) - ACTION DIRECTE
    */
   async closeTontine(tontineId, genererRapport = true) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.CLOSE(tontineId), {
@@ -190,14 +122,15 @@ const tontineService = {
   },
 
   /**
-   * Supprimer une tontine (Admin uniquement)
+   * ✅ Supprimer une tontine (Admin uniquement) - AVEC VALIDATION
    * @param {string} tontineId - ID de la tontine
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   * @param {string} validationRequestId - ID de la validation acceptée
    */
-  async deleteTontine(tontineId) {
+  async deleteTontine(tontineId, validationRequestId) {
     return await del(API_CONFIG.ENDPOINTS.TONTINES.DELETE(tontineId), {
       data: {
         confirmation: 'SUPPRIMER',
+        validationRequestId, // ✅ AJOUTÉ
       },
     });
   },
@@ -206,19 +139,10 @@ const tontineService = {
   // HELPERS
   // ========================================
 
-  /**
-   * Obtenir mes tontines actives (Membre)
-   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
-   */
   async getMyActiveTontines() {
     return await this.listTontines({ statut: 'Active' });
   },
 
-  /**
-   * Vérifier si je suis membre d'une tontine
-   * @param {string} tontineId - ID de la tontine
-   * @returns {Promise<boolean>}
-   */
   async isMemberOf(tontineId) {
     const result = await this.getTontineDetails(tontineId);
     if (!result.success) return false;

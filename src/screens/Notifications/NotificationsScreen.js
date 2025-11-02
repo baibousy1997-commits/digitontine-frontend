@@ -1,5 +1,6 @@
 // src/screens/Notifications/NotificationsScreen.js
 import React, { useState, useEffect, useCallback } from 'react';
+import validationService from '../../services/validation/validationService';
 import {
   View,
   Text,
@@ -78,7 +79,7 @@ const NotificationsScreen = ({ navigation }) => {
     }
   };
 
-//  REMPLACER la fonction handleAction complète (lignes 58-113)
+
 
 const handleAction = async (notification, action) => {
   try {
@@ -88,26 +89,23 @@ const handleAction = async (notification, action) => {
     if (notification.type === 'TONTINE_INVITATION') {
       const accepter = action === 'accepted';
 
-      //  AFFICHER LE RÈGLEMENT COMPLET AVANT ACCEPTATION
       if (accepter) {
         Alert.alert(
-          ' Règlement de la tontine',
-          notification.message || 'Aucun règlement disponible',
+          'Reglement de la tontine',
+          notification.message || 'Aucun reglement disponible',
           [
             { text: 'Annuler', style: 'cancel' },
             {
-              text: 'Accepter le règlement',
+              text: 'Accepter le reglement',
               onPress: async () => {
                 const result = await notificationService.acceptInvitation(notification._id);
 
                 if (result.success) {
                   Alert.alert(
-                    ' Bienvenue !',
-                    `Vous avez rejoint "${notification.data?.tontineId?.nom || 'la tontine'}" avec succès.\n\nVous recevrez les notifications de tirage.`,
+                    'Bienvenue !',
+                    `Vous avez rejoint "${notification.data?.tontineId?.nom || 'la tontine'}" avec succes.\n\nVous recevrez les notifications de tirage.`,
                     [{ text: 'OK' }]
                   );
-
-                  //  Retirer la notification de la liste
                   setNotifications(prev => prev.filter(n => n._id !== notification._id));
                 } else {
                   Alert.alert('Erreur', result.error || 'Impossible d\'accepter l\'invitation');
@@ -118,10 +116,9 @@ const handleAction = async (notification, action) => {
           { cancelable: true }
         );
       } else {
-        //  REFUS : Confirmation
         Alert.alert(
-          ' Refuser l\'invitation',
-          'Êtes-vous sûr de vouloir refuser cette invitation ?',
+          'Refuser l\'invitation',
+          'Etes-vous sur de vouloir refuser cette invitation ?',
           [
             { text: 'Annuler', style: 'cancel' },
             {
@@ -131,7 +128,7 @@ const handleAction = async (notification, action) => {
                 const result = await notificationService.refuseInvitation(notification._id);
 
                 if (result.success) {
-                  Alert.alert(' Invitation refusée', 'Invitation déclinée.', [{ text: 'OK' }]);
+                  Alert.alert('Invitation refusee', 'Invitation declinee.', [{ text: 'OK' }]);
                   setNotifications(prev => prev.filter(n => n._id !== notification._id));
                 } else {
                   Alert.alert('Erreur', result.error || 'Impossible de refuser l\'invitation');
@@ -142,13 +139,13 @@ const handleAction = async (notification, action) => {
         );
       }
     } 
-    //  CAS 2 : Notification tirage (opt-in)
+    // CAS 2 : Notification tirage (opt-in)
     else if (notification.type === 'TIRAGE_NOTIFICATION') {
       const result = await notificationService.takeAction(notification._id, action);
 
       if (result.success) {
         Alert.alert(
-          action === 'accepted' ? ' Confirmation' : ' Refus enregistré',
+          action === 'accepted' ? 'Confirmation' : 'Refus enregistre',
           action === 'accepted' 
             ? 'Vous participez au prochain tirage' 
             : 'Vous ne participerez pas au tirage',
@@ -166,9 +163,101 @@ const handleAction = async (notification, action) => {
         Alert.alert('Erreur', result.error || 'Impossible d\'enregistrer votre choix');
       }
     }
-    //  CAS 3 : Autres types de notifications
+    // CAS 3 : VALIDATION DE DEMANDE (TRESORIER)
+    else if (notification.type === 'VALIDATION_REQUEST') {
+      // EXTRACTION DIRECTE depuis notification.data
+      const validationRequestId = notification.data?.validationRequestId;
+      
+      if (!validationRequestId) {
+        Alert.alert('Erreur', 'ID de validation introuvable dans la notification');
+        return;
+      }
+      
+      const actionTypeRaw = notification.titre || notification.data?.actionType || '';
+      const actionTypeLabel = actionTypeRaw.replace('Validation requise - ', '').trim();
+      
+      const messageMatch = notification.message?.match(/pour : (.+?)\. Raison/);
+      const resourceName = messageMatch ? messageMatch[1] : 'Ressource inconnue';
+      
+      const reason = notification.message?.split('Raison : ')[1] || 'Pas de raison fournie';
+
+      if (action === 'accepted') {
+        Alert.alert(
+          'Accepter cette demande ?',
+          `Action : ${actionTypeLabel}\n\nRessource : ${resourceName}\n\nRaison : ${reason}\n\nL'action sera EXECUTEE IMMEDIATEMENT apres acceptation.`,
+          [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Accepter et Executer',
+              style: 'default',
+              onPress: async () => {
+                const result = await validationService.acceptValidation(validationRequestId);
+
+                if (result.success) {
+                  const actionExecuted = result.data?.data?.actionExecuted || result.data?.actionExecuted;
+                  const actionResult = result.data?.data?.actionResult || result.data?.actionResult;
+                  
+                  if (actionExecuted) {
+                    Alert.alert(
+                      'Action executee !', 
+                      `${actionResult}\n\nL'Admin a ete notifie.`,
+                      [{ text: 'OK' }]
+                    );
+                  } else {
+                    Alert.alert(
+                      'Demande acceptee', 
+                      'L\'action n\'a pas pu etre executee automatiquement. L\'Admin doit l\'executer manuellement.',
+                      [{ text: 'OK' }]
+                    );
+                  }
+                  
+                  await notificationService.markAsRead(notification._id);
+                  setNotifications(prev => prev.filter(n => n._id !== notification._id));
+                } else {
+                  Alert.alert('Erreur', result.error || 'Impossible d\'accepter');
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        Alert.prompt(
+          'Refuser cette demande ?',
+          `Ressource : ${resourceName}\n\nIndiquez la raison du refus (min 2 caracteres) :`,
+          [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Refuser',
+              style: 'destructive',
+              onPress: async (rejectReason) => {
+                if (!rejectReason || rejectReason.trim().length < 2) {
+                  Alert.alert('Erreur', 'La raison doit contenir au moins 2 caracteres');
+                  return;
+                }
+
+                const result = await validationService.rejectValidationRequest(
+                  validationRequestId,
+                  rejectReason.trim()
+                );
+
+                if (result.success) {
+                  Alert.alert('Demande refusee', 'L\'Admin a ete notifie du refus.', [{ text: 'OK' }]);
+                  
+                  await notificationService.markAsRead(notification._id);
+                  setNotifications(prev => prev.filter(n => n._id !== notification._id));
+                } else {
+                  Alert.alert('Erreur', result.error || 'Impossible de refuser');
+                }
+              }
+            }
+          ],
+          'plain-text'
+        );
+      }
+    }
+    // CAS 4 : Autres types
     else {
-      Alert.alert('Info', 'Type de notification non géré');
+      Alert.alert('Info', 'Type de notification non gere');
     }
   } catch (error) {
     console.error('Erreur action:', error);
@@ -177,7 +266,6 @@ const handleAction = async (notification, action) => {
     setActionLoading(prev => ({ ...prev, [notification._id]: false }));
   }
 };
-
   const deleteNotification = async (notificationId) => {
     Alert.alert(
       'Confirmer la suppression',

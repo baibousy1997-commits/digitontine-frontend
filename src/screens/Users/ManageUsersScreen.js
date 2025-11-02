@@ -1,4 +1,5 @@
-// src/screens/Users/ManageUsersScreen.js
+// src/screens/Users/ManageUsersScreen.js - VERSION SIMPLIFIEE (OPTION A)
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -13,10 +14,9 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import userService from '../../services/user/userService';
-import validationService from '../../services/validation/validationService';
 import Colors from '../../constants/colors';
 
 const ManageUsersScreen = ({ route, navigation }) => {
@@ -26,7 +26,7 @@ const ManageUsersScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [users, setUsers] = useState([]);
-  const [filter, setFilter] = useState('all'); // all, Administrateur, Tresorier, Membre
+  const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -50,7 +50,7 @@ const ManageUsersScreen = ({ route, navigation }) => {
           usersList = result.data;
         }
         
-        console.log('Utilisateurs chargés:', usersList.length);
+        console.log('Utilisateurs charges:', usersList.length);
         setUsers(usersList);
       } else {
         console.error('Erreur:', result.error);
@@ -81,132 +81,130 @@ const ManageUsersScreen = ({ route, navigation }) => {
     }
   };
 
-  // ========================================
-  // ACTIONS CRITIQUES (avec validation)
-  // ========================================
+// cette fonction dans ManageUsersScreen.js
 
-  const handleActivateUser = (user) => {
-    if (criticalActions) {
-      // Mode validation
-      Alert.alert(
-        ' Activation avec validation',
-        `L'activation de "${user.prenom} ${user.nom}" nécessite la validation d'un Trésorier.\n\nVoulez-vous créer une demande de validation ?`,
-        [
-          { text: 'Annuler', style: 'cancel' },
-          {
-            text: 'Créer la demande',
-            onPress: () => {
-              Alert.prompt(
-                'Raison de l\'activation',
-                'Expliquez pourquoi cet utilisateur doit être activé :',
-                [
-                  { text: 'Annuler', style: 'cancel' },
-                  {
-                    text: 'Valider',
-                    onPress: (reason) => {
-                      if (!reason || reason.trim().length < 10) {
-                        Alert.alert(' Erreur', 'La raison doit contenir au moins 10 caractères');
-                        return;
-                      }
-                      
-                      navigation.navigate('CreateValidationRequest', {
-                        actionType: 'ACTIVATE_USER',
-                        resourceType: 'User',
-                        resourceId: getUserId(user),
-                        resourceName: `${user.prenom} ${user.nom} (${user.email})`,
-                        reason: reason.trim(),
-                        onSuccess: () => loadUsers(),
-                      });
-                    }
-                  }
-                ],
-                'plain-text'
-              );
+const handleActivateUser = async (user) => {
+  if (!criticalActions) {
+    Alert.alert('Action non disponible', 'Utilisez le mode "Actions Critiques"');
+    return;
+  }
+
+  Alert.alert(
+    'Activer l\'utilisateur',
+    `Activer "${user.prenom} ${user.nom}" ?\n\nAction immediate.`,
+    [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Activer',
+        onPress: async () => {
+          try {
+            setActionLoading(true);
+            
+            // CORRECTION : Appel SANS validationRequestId et SANS raison
+            const result = await userService.toggleActivation(getUserId(user));
+
+            if (result.success) {
+              Alert.alert('Succes', 'Utilisateur active');
+              await loadUsers();
+            } else {
+              Alert.alert('Erreur', result.error?.message || 'Impossible d\'activer');
             }
+          } catch (error) {
+            console.error('Erreur:', error);
+            Alert.alert('Erreur', 'Une erreur est survenue');
+          } finally {
+            setActionLoading(false);
           }
-        ]
-      );
-    } else {
-      // Mode direct (lecture seule)
-      Alert.alert(' Action non disponible', 'Utilisez le mode "Actions Critiques" pour activer un utilisateur');
+        }
+      }
+    ]
+  );
+};
+  // DESACTIVER : VERSION SIMPLIFIEE (OPTION A)
+  const handleDeactivateUser = async (user) => {
+    if (!criticalActions) {
+      Alert.alert('Action non disponible', 'Utilisez "Actions Critiques"');
+      return;
     }
+
+    Alert.alert(
+      'Desactiver l\'utilisateur',
+      `Voulez-vous desactiver "${user.prenom} ${user.nom}" ?\n\nCette action necessite la validation d'un Tresorier.\n\nL'action sera EXECUTEE AUTOMATIQUEMENT apres validation.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Creer la demande',
+          style: 'default',
+          onPress: () => {
+            console.log('Navigation vers CreateValidationRequest avec:', {
+              actionType: 'DEACTIVATE_USER',
+              resourceType: 'User',
+              resourceId: getUserId(user),
+              resourceName: `${user.prenom} ${user.nom}`,
+            });
+            
+            navigation.navigate('CreateValidationRequest', {
+              actionType: 'DEACTIVATE_USER',
+              resourceType: 'User',
+              resourceId: getUserId(user),
+              resourceName: `${user.prenom} ${user.nom}`,
+              reason: '',
+              onSuccess: () => {
+                Alert.alert(
+                  'Demande creee', 
+                  'Un tresorier va valider votre demande. Vous serez notifie.',
+                  [{ text: 'OK', onPress: () => loadUsers() }]
+                );
+              },
+            });
+          }
+        }
+      ]
+    );
   };
 
-  const handleDeactivateUser = (user) => {
-    if (criticalActions) {
-      Alert.alert(
-        'Désactivation avec validation',
-        `La désactivation de "${user.prenom} ${user.nom}" nécessite la validation d'un Trésorier.\n\nVoulez-vous créer une demande de validation ?`,
-        [
-          { text: 'Annuler', style: 'cancel' },
-          {
-            text: 'Créer la demande',
-            onPress: () => {
-              Alert.prompt(
-                'Raison de la désactivation',
-                'Expliquez pourquoi cet utilisateur doit être désactivé :',
-                [
-                  { text: 'Annuler', style: 'cancel' },
-                  {
-                    text: 'Valider',
-                    onPress: (reason) => {
-                      if (!reason || reason.trim().length < 10) {
-                        Alert.alert('Erreur', 'La raison doit contenir au moins 10 caractères');
-                        return;
-                      }
-                      
-                      navigation.navigate('CreateValidationRequest', {
-                        actionType: 'DEACTIVATE_USER',
-                        resourceType: 'User',
-                        resourceId: getUserId(user),
-                        resourceName: `${user.prenom} ${user.nom} (${user.email})`,
-                        reason: reason.trim(),
-                        onSuccess: () => loadUsers(),
-                      });
-                    }
-                  }
-                ],
-                'plain-text'
-              );
-            }
-          }
-        ]
-      );
-    } else {
-      Alert.alert('ℹ Action non disponible', 'Utilisez le mode "Actions Critiques" pour désactiver un utilisateur');
+  // SUPPRIMER : VERSION SIMPLIFIEE (OPTION A)
+  const handleDeleteUser = async (user) => {
+    if (!criticalActions) {
+      Alert.alert('Action non disponible');
+      return;
     }
-  };
 
-  const handleDeleteUser = (user) => {
-    if (criticalActions) {
-      Alert.alert(
-        ' SUPPRESSION CRITIQUE',
-        `ATTENTION !\n\nVous allez supprimer définitivement l'utilisateur "${user.prenom} ${user.nom}".\n\nCette action nécessite la validation d'un Trésorier.\n\nÊtes-vous sûr de vouloir créer cette demande ?`,
-        [
-          { text: 'Annuler', style: 'cancel' },
-          {
-            text: 'Créer la demande',
-            style: 'destructive',
-            onPress: () => {
-              navigation.navigate('CreateValidationRequest', {
-                actionType: 'DELETE_USER',
-                resourceType: 'User',
-                resourceId: getUserId(user),
-                resourceName: `${user.prenom} ${user.nom} (${user.email})`,
-                onSuccess: () => loadUsers(),
-              });
-            }
+    Alert.alert(
+      'SUPPRESSION CRITIQUE',
+      `ATTENTION !\n\nSuppression de "${user.prenom} ${user.nom}".\n\nCette action necessite la validation d'un Tresorier.\n\nL'action sera EXECUTEE AUTOMATIQUEMENT apres validation.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Creer la demande',
+          style: 'destructive',
+          onPress: () => {
+            console.log('Navigation vers CreateValidationRequest avec:', {
+              actionType: 'DELETE_USER',
+              resourceType: 'User',
+              resourceId: getUserId(user),
+              resourceName: `${user.prenom} ${user.nom}`,
+            });
+            
+            navigation.navigate('CreateValidationRequest', {
+              actionType: 'DELETE_USER',
+              resourceType: 'User',
+              resourceId: getUserId(user),
+              resourceName: `${user.prenom} ${user.nom}`,
+              reason: '',
+              onSuccess: () => {
+                Alert.alert(
+                  'Demande creee', 
+                  'Un tresorier va valider votre demande. Vous serez notifie.',
+                  [{ text: 'OK', onPress: () => loadUsers() }]
+                );
+              },
+            });
           }
-        ]
-      );
-    } else {
-      Alert.alert('ℹ Action non disponible', 'Utilisez le mode "Actions Critiques" pour supprimer un utilisateur');
-    }
+        }
+      ]
+    );
   };
-
-  // ========================================
-  // FILTRAGE & RECHERCHE
-  // ========================================
 
   const filteredUsers = users.filter((user) => {
     const matchesFilter = filter === 'all' || user.role === filter;
@@ -219,17 +217,12 @@ const ManageUsersScreen = ({ route, navigation }) => {
     return matchesFilter && matchesSearch;
   });
 
-  // ========================================
-  // RENDER ITEM
-  // ========================================
-
   const renderUser = ({ item }) => {
     const canActivate = !item.isActive;
     const canDeactivate = item.isActive;
 
     return (
       <View style={[styles.userCard, { backgroundColor: theme.surface }]}>
-        {/* Header */}
         <View style={styles.userHeader}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.userName, { color: theme.text }]}>
@@ -244,7 +237,6 @@ const ManageUsersScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        {/* Détails */}
         <View style={styles.userDetails}>
           <View style={styles.detailRow}>
             <Ionicons name="call-outline" size={16} color={theme.textSecondary} />
@@ -272,7 +264,6 @@ const ManageUsersScreen = ({ route, navigation }) => {
           </View>
         </View>
 
-        {/* Actions */}
         {criticalActions && (
           <View style={styles.actionsContainer}>
             {canActivate && (
@@ -293,7 +284,7 @@ const ManageUsersScreen = ({ route, navigation }) => {
                 disabled={actionLoading}
               >
                 <Ionicons name="pause-circle" size={18} color="#fff" />
-                <Text style={styles.actionBtnText}>Désactiver</Text>
+                <Text style={styles.actionBtnText}>Desactiver</Text>
               </TouchableOpacity>
             )}
 
@@ -312,7 +303,7 @@ const ManageUsersScreen = ({ route, navigation }) => {
           <View style={[styles.infoBox, { backgroundColor: theme.background }]}>
             <Ionicons name="information-circle" size={16} color={Colors.primaryDark} />
             <Text style={[styles.infoText, { color: theme.textSecondary }]}>
-              Mode lecture seule - Utilisez "Actions Critiques" pour modifier
+              Mode lecture seule
             </Text>
           </View>
         )}
@@ -324,25 +315,23 @@ const ManageUsersScreen = ({ route, navigation }) => {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={theme.isDarkMode ? 'light-content' : 'dark-content'} />
       
-      {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.surface }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={26} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>
-          {criticalActions ? ' Actions Critiques' : 'Gérer Utilisateurs'}
+          {criticalActions ? 'Actions Critiques' : 'Gerer Utilisateurs'}
         </Text>
         <TouchableOpacity onPress={loadUsers}>
           <Ionicons name="refresh" size={26} color={theme.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Barre de recherche */}
       <View style={[styles.searchContainer, { backgroundColor: theme.surface }]}>
         <Ionicons name="search" size={20} color={theme.placeholder} />
         <TextInput
           style={[styles.searchInput, { color: theme.text }]}
-          placeholder="Rechercher un utilisateur..."
+          placeholder="Rechercher..."
           placeholderTextColor={theme.placeholder}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -354,7 +343,6 @@ const ManageUsersScreen = ({ route, navigation }) => {
         )}
       </View>
 
-      {/* Filtres */}
       <View style={styles.filterContainer}>
         {['all', 'Administrateur', 'Tresorier', 'Membre'].map((f) => (
           <TouchableOpacity
@@ -379,7 +367,6 @@ const ManageUsersScreen = ({ route, navigation }) => {
         ))}
       </View>
 
-      {/* Liste */}
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primaryDark} />
@@ -389,12 +376,7 @@ const ManageUsersScreen = ({ route, navigation }) => {
         <View style={styles.emptyContainer}>
           <Ionicons name="people-outline" size={80} color={theme.placeholder} />
           <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-            {searchQuery 
-              ? 'Aucun utilisateur trouvé'
-              : filter === 'all' 
-                ? 'Aucun utilisateur disponible'
-                : `Aucun ${filter} disponible`
-            }
+            {searchQuery ? 'Aucun resultat' : filter === 'all' ? 'Aucun utilisateur' : `Aucun ${filter}`}
           </Text>
         </View>
       ) : (
@@ -403,9 +385,7 @@ const ManageUsersScreen = ({ route, navigation }) => {
           renderItem={renderUser}
           keyExtractor={(item) => getUserId(item)}
           contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
       )}
     </SafeAreaView>
@@ -442,23 +422,10 @@ const styles = StyleSheet.create({
     gap: 10,
     flexWrap: 'wrap',
   },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
+  filterButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
   filterText: { fontSize: 14, fontWeight: '600' },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   emptyText: { fontSize: 16, textAlign: 'center', marginTop: 20 },
   listContent: { padding: 20 },
   userCard: {
@@ -471,26 +438,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  userHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
+  userHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   userName: { fontSize: 18, fontWeight: '700', marginBottom: 5 },
   userEmail: { fontSize: 14 },
-  roleBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-  },
+  roleBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, alignSelf: 'flex-start' },
   roleText: { fontSize: 12, color: '#fff', fontWeight: '600' },
-  userDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 15,
-    gap: 15,
-  },
+  userDetails: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 15, gap: 15 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   detailText: { fontSize: 13 },
   actionsContainer: {
@@ -502,23 +455,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
   },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
-  },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 10, borderRadius: 8, gap: 6 },
   actionBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 10,
-    gap: 8,
-  },
+  infoBox: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, marginTop: 10, gap: 8 },
   infoText: { fontSize: 12, flex: 1 },
 });
 

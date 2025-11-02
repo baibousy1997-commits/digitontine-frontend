@@ -1,4 +1,4 @@
-// src/screens/Dashboard/DashboardAdminScreen.js
+// src/screens/Dashboard/DashboardAdminScreen.js 
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -364,6 +364,7 @@ const DashboardAdminScreen = ({ navigation }) => {
           </View>
         </View>
 
+        {/*  CORRECTION : Renommé "Gestion Utilisateurs" */}
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Gestion Utilisateurs</Text>
 
         <TouchableOpacity
@@ -371,7 +372,7 @@ const DashboardAdminScreen = ({ navigation }) => {
           onPress={() => navigation.navigate('ManageUsers', { criticalActions: true })}
         >
           <MaterialCommunityIcons name="shield-account" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>Actions Critiques (Validation requise)</Text>
+          <Text style={styles.actionButtonText}>Gerer les utilisateurs</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -382,13 +383,7 @@ const DashboardAdminScreen = ({ navigation }) => {
           <Text style={styles.actionButtonText}>Mes demandes de validation</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
-          onPress={() => navigation.navigate('ManageUsers')}
-        >
-          <Ionicons name="people" size={24} color="#fff" />
-          <Text style={styles.actionButtonText}>Gerer les utilisateurs</Text>
-        </TouchableOpacity>
+       
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}

@@ -1,3 +1,4 @@
+// src/screens/Validation/MyValidationRequestsScreen.js - 
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -21,7 +22,7 @@ const MyValidationRequestsScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [requests, setRequests] = useState([]);
-  const [filter, setFilter] = useState('all'); // all, pending, accepted, rejected
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     loadMyRequests();
@@ -30,17 +31,47 @@ const MyValidationRequestsScreen = ({ navigation }) => {
   const loadMyRequests = async () => {
     try {
       setLoading(true);
+      
+      console.log('\n Chargement demandes avec filtre:', filter);
+      
       const params = filter !== 'all' ? { status: filter } : {};
       const result = await validationService.getMyRequests(params);
       
+      console.log(' Résultat API:', JSON.stringify(result, null, 2));
+      console.log('   Success:', result.success);
+      console.log('   Data structure:', typeof result.data, Array.isArray(result.data));
+      
       if (result.success) {
-        const data = result.data?.data || [];
-        setRequests(Array.isArray(data) ? data : []);
+        //  CORRECTION : Extraction correcte des données
+        let data = [];
+        
+        if (Array.isArray(result.data)) {
+          data = result.data;
+          console.log(' Structure: result.data (direct)');
+        } else if (Array.isArray(result.data?.data)) {
+          data = result.data.data;
+          console.log(' Structure: result.data.data');
+        } else if (Array.isArray(result.data?.requests)) {
+          data = result.data.requests;
+          console.log(' Structure: result.data.requests');
+        }
+        
+        console.log(` ${data.length} demande(s) extraite(s)`);
+        
+        if (data.length > 0) {
+          console.log(' Première demande:', JSON.stringify(data[0], null, 2));
+        }
+        
+        setRequests(data);
       } else {
+        console.error(' Erreur API:', result.error);
         Alert.alert(' Erreur', 'Impossible de charger vos demandes');
+        setRequests([]);
       }
     } catch (error) {
-      console.error('Erreur chargement demandes:', error);
+      console.error(' Exception chargement demandes:', error);
+      console.error('Stack:', error.stack);
+      setRequests([]);
     } finally {
       setLoading(false);
     }
@@ -73,13 +104,16 @@ const MyValidationRequestsScreen = ({ navigation }) => {
   };
 
   const renderItem = ({ item }) => {
+    console.log(' Render item:', JSON.stringify(item, null, 2));
+    
+    //  CORRECTION : Gestion flexible des IDs
+    const requestId = item._id || item.id;
+    
     return (
       <TouchableOpacity
         style={[styles.card, { backgroundColor: theme.surface }]}
         onPress={() => {
-          navigation.navigate('ValidationRequestDetails', { 
-            requestId: item.id 
-          });
+          console.log(' Navigation vers détails:', requestId);
         }}
       >
         <View style={styles.cardHeader}>
@@ -87,8 +121,9 @@ const MyValidationRequestsScreen = ({ navigation }) => {
             <Text style={[styles.actionType, { color: Colors.primaryDark }]}>
               {validationService.getActionLabel(item.actionType)}
             </Text>
+            {/*  CORRECTION : Afficher resourceName correctement */}
             <Text style={[styles.resourceName, { color: theme.text }]}>
-              {item.resourceName}
+              {item.resourceName || 'Ressource non spécifiée'}
             </Text>
           </View>
           <View style={[
@@ -104,7 +139,7 @@ const MyValidationRequestsScreen = ({ navigation }) => {
         <View style={styles.infoRow}>
           <Ionicons name="person" size={16} color={theme.textSecondary} />
           <Text style={[styles.infoText, { color: theme.textSecondary }]}>
-            Trésorier : {item.assignedTresorier}
+            Trésorier : {item.assignedTresorier || 'Non assigné'}
           </Text>
         </View>
 
@@ -158,7 +193,9 @@ const MyValidationRequestsScreen = ({ navigation }) => {
         <Text style={[styles.headerTitle, { color: theme.text }]}>
           Mes demandes ({requests.length})
         </Text>
-        <View style={{ width: 26 }} />
+        <TouchableOpacity onPress={loadMyRequests}>
+          <Ionicons name="refresh" size={26} color={theme.text} />
+        </TouchableOpacity>
       </View>
 
       {/* Filtres */}
@@ -226,7 +263,7 @@ const MyValidationRequestsScreen = ({ navigation }) => {
 
       <FlatList
         data={requests}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id || item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -239,7 +276,10 @@ const MyValidationRequestsScreen = ({ navigation }) => {
               Aucune demande
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
-              Créez une demande de validation pour les actions critiques
+              {filter === 'all' 
+                ? 'Créez une demande de validation pour les actions critiques'
+                : `Aucune demande ${getStatusLabel(filter).toLowerCase()}`
+              }
             </Text>
           </View>
         }

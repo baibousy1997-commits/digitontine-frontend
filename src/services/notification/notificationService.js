@@ -4,7 +4,7 @@ import apiClient from '../api/apiClient';
 const BASE_URL = '/notifications';
 
 /**
- * Récupérer mes notifications
+ * Recuperer mes notifications
  */
 const getMyNotifications = async (params = {}) => {
   try {
@@ -24,19 +24,13 @@ const getMyNotifications = async (params = {}) => {
 
 /**
  * Obtenir le nombre de notifications non lues
- * CORRECTION: Extraire correctement response.data.data.count
  */
 const getUnreadCount = async () => {
   try {
     const response = await apiClient.get(`${BASE_URL}/unread-count`);
-    
-    // CORRECTION: Le backend renvoie { data: { data: { count: 3 } }, success: true, ... }
-    // apiClient ajoute une couche "data", donc on a response.data.data.count
     const count = response.data?.data?.count || response.data?.count || 0;
     
-    console.log('[notificationService] getUnreadCount - response.data:', response.data);
     console.log('[notificationService] getUnreadCount - count extrait:', count);
-    
     return { success: true, count };
   } catch (error) {
     console.error('Erreur getUnreadCount:', error);
@@ -76,7 +70,7 @@ const markAllAsRead = async () => {
 const takeAction = async (notificationId, action) => {
   try {
     const response = await apiClient.post(`${BASE_URL}/${notificationId}/action`, {
-      action, // 'accepted' ou 'refused'
+      action,
     });
     return { success: true, data: response.data };
   } catch (error) {
@@ -100,6 +94,7 @@ const deleteNotification = async (notificationId) => {
     return { success: false, error: error.message };
   }
 };
+
 /**
  * Accepter invitation tontine
  */
@@ -131,6 +126,7 @@ const refuseInvitation = async (notificationId) => {
     };
   }
 };
+
 export default {
   getMyNotifications,
   getUnreadCount,
@@ -138,6 +134,6 @@ export default {
   markAllAsRead,
   takeAction,
   deleteNotification,
-  acceptInvitation,     //  NOUVEAU
-  refuseInvitation,     //  NOUVEAU
+  acceptInvitation,
+  refuseInvitation,
 };
