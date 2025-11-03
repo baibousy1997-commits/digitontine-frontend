@@ -105,6 +105,7 @@ const API_CONFIG = {
       LIST: '/transactions',
       CREATE: '/transactions',
       MY_TRANSACTIONS: '/transactions/me',
+      MY_TONTINES_TRANSACTIONS: '/transactions/my-tontines',
       DETAILS: (transactionId) => `/transactions/${transactionId}`,
       VALIDATE: (transactionId) => `/transactions/${transactionId}/validate`,
       REJECT: (transactionId) => `/transactions/${transactionId}/reject`,

@@ -186,15 +186,7 @@ const handleChangePassword = async () => {
             <Text style={styles.requirement}>- 1 chiffre</Text>
             <Text style={styles.requirement}>- 1 caractere special (@$!%*?&)</Text>
           </View>
-<View style={styles.warningBox}>
-  <Ionicons name="alert-circle-outline" size={24} color="#d32f2f" />
-  <View style={styles.warningTextContainer}>
-    <Text style={styles.warningTitle}>Important</Text>
-    <Text style={styles.warningText}>
-      Apres validation, vous serez deconnecte. Reconnectez-vous avec votre nouveau mot de passe.
-    </Text>
-  </View>
-</View>
+
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}

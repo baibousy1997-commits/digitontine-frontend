@@ -169,6 +169,35 @@ const transactionService = {
     const transactions = result.data.data;
     return transactions.reduce((total, t) => total + (t.montant || 0), 0);
   },
+  /**
+   * Récupérer les transactions de toutes mes tontines
+   * @param {object} params - Paramètres de recherche
+   * @param {number} params.page - Numéro de page
+   * @param {number} params.limit - Nombre d'éléments par page
+   * @param {string} params.statut - Filtrer par statut
+   * @param {string} params.tontineId - Filtrer par tontine spécifique
+   * @returns {Promise<{success: boolean, data?: any, error?: any}>}
+   */
+  async getMyTontinesTransactions(params = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      if (params.page) queryParams.append('page', params.page);
+      if (params.limit) queryParams.append('limit', params.limit);
+      if (params.statut) queryParams.append('statut', params.statut);
+      if (params.tontineId) queryParams.append('tontineId', params.tontineId);
+      
+      const url = `${API_CONFIG.ENDPOINTS.TRANSACTIONS.MY_TONTINES_TRANSACTIONS}?${queryParams.toString()}`;
+      return await get(url);
+    } catch (error) {
+      console.error('Erreur getMyTontinesTransactions:', error);
+      return {
+        success: false,
+        error: error?.message || 'Erreur lors de la récupération des transactions',
+      };
+    }
+  },
 };
+
 
 export default transactionService;

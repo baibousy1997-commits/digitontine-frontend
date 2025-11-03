@@ -33,20 +33,42 @@ const TransactionsValidationScreen = ({ navigation }) => {
     loadTransactions();
   }, []);
 
-  const loadTransactions = async () => {
-    try {
-      setLoading(true);
-      const result = await transactionService.getPendingValidations();
+const loadTransactions = async () => {
+  try {
+    setLoading(true);
+    
+    const result = await transactionService.listTransactions({ 
+      statut: 'En attente' 
+    });
 
-      if (result.success) {
-        setTransactions(result.data?.data || []);
+    console.log('Resultat API pending validations:', result);
+
+    if (result.success) {
+      // CORRECTION: Triple imbrication result.data.data.data
+      let transactionsList = [];
+      
+      if (Array.isArray(result.data?.data?.data)) {
+        transactionsList = result.data.data.data;
+      } else if (Array.isArray(result.data?.data)) {
+        transactionsList = result.data.data;
+      } else if (Array.isArray(result.data)) {
+        transactionsList = result.data;
       }
-    } catch (error) {
-      console.error('Erreur chargement transactions:', error);
-    } finally {
-      setLoading(false);
+      
+      console.log(`${transactionsList.length} transaction(s) en attente trouvée(s)`);
+      setTransactions(transactionsList);
+    } else {
+      console.error('Erreur API:', result.error);
+      setTransactions([]);
     }
-  };
+  } catch (error) {
+    console.error('Exception chargement transactions:', error);
+    console.error('Message:', error.message);
+    setTransactions([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const onRefresh = async () => {
     setRefreshing(true);

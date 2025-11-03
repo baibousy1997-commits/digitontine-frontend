@@ -198,7 +198,7 @@ const handleDeleteTontine = async (tontine) => {
 const handleActivateTontine = (tontine) => {
   Alert.alert(
     ' Activer la tontine',
-    `Voulez-vous activer "${tontine.nom}" ?\n\n Le calendrier sera généré et les membres notifiés.\n\n⚡ Action immédiate (sans validation).`,
+    `Voulez-vous activer "${tontine.nom}" ?\n\n Le calendrier sera généré et les membres notifiés.\n\n Action immédiate (sans validation).`,
     [
       { text: 'Annuler', style: 'cancel' },
       { 

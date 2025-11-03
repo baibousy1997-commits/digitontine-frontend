@@ -233,6 +233,22 @@ const DashboardAdminScreen = ({ navigation }) => {
           </View>
         )}
 
+        {dashboardData?.transactionsEnAttenteAdmin?.length > 0 && (
+          <View style={[styles.alertBox, { backgroundColor: '#fff3cd' }]}>
+            <Ionicons name="warning" size={24} color="#856404" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.alertText}>
+                {dashboardData.transactionsEnAttenteAdmin.length} cotisation(s) du tresorier a valider
+              </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('TransactionsValidation')}>
+                <Text style={{ color: '#004aad', marginTop: 5, fontWeight: '600' }}>
+                  Valider maintenant
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Utilisateurs</Text>
         <View style={styles.kpiRow}>
           <View style={[styles.kpiCard, { backgroundColor: theme.surface }]}>
@@ -364,7 +380,40 @@ const DashboardAdminScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/*  CORRECTION : Renommé "Gestion Utilisateurs" */}
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Mes Cotisations</Text>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: Colors.accentGreen }]}
+          onPress={() => {
+            if (tontines && tontines.length > 0) {
+              const premiereTontine = tontines[0];
+              navigation.navigate('CreateTransaction', {
+                tontineId: premiereTontine.id || premiereTontine._id,
+                tontineName: premiereTontine.nom,
+                userRole: 'admin'
+              });
+            } else {
+              Alert.alert(
+                'Aucune tontine',
+                'Vous devez creer une tontine avant de pouvoir cotiser.',
+                [{ text: 'OK' }]
+              );
+            }
+          }}
+          disabled={!tontines || tontines.length === 0}
+        >
+          <MaterialCommunityIcons name="cash-plus" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Payer une cotisation</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
+          onPress={() => navigation.navigate('MyTransactions')}
+        >
+          <Ionicons name="receipt" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Mes cotisations</Text>
+        </TouchableOpacity>
+
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Gestion Utilisateurs</Text>
 
         <TouchableOpacity
@@ -382,8 +431,6 @@ const DashboardAdminScreen = ({ navigation }) => {
           <MaterialCommunityIcons name="clipboard-check" size={24} color="#fff" />
           <Text style={styles.actionButtonText}>Mes demandes de validation</Text>
         </TouchableOpacity>
-
-       
 
         <TouchableOpacity
           style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}

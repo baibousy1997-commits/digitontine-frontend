@@ -1,4 +1,4 @@
-// src/navigation/AppNavigator.js
+// src/navigation/AppNavigator.js - VERSION CORRIGEE
 import React, { useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAuthContext } from '../context/AuthContext';
@@ -45,13 +45,10 @@ import TransactionDetailsScreen from '../screens/Transaction/TransactionDetailsS
 // Notification Screen
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 
-const Stack = createStackNavigator();
+// Wallet Screen
+import WalletScreen from '../screens/Wallet/WalletScreen';
 
-const WalletPlaceholder = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text>Wallet - A venir</Text>
-  </View>
-);
+const Stack = createStackNavigator();
 
 const AuthStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -63,16 +60,23 @@ const AuthStack = () => (
 
 const MainStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false }}>
+    {/* Home & Dashboards */}
     <Stack.Screen name="Accueil" component={HomeScreen} />
     <Stack.Screen name="DashboardAdmin" component={DashboardAdminScreen} />
     <Stack.Screen name="DashboardTresorier" component={DashboardTresorierScreen} />
     <Stack.Screen name="DashboardMembre" component={DashboardMembreScreen} />
+    
+    {/* Profile & Settings */}
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="Account" component={AccountScreen} />
     <Stack.Screen name="Settings" component={SettingsScreen} />
     <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+    
+    {/* Users Management */}
     <Stack.Screen name="CreateUser" component={CreateUsersScreen} />
     <Stack.Screen name="ManageUsers" component={ManageUsersScreen} />
+    
+    {/* Tontine Management */}
     <Stack.Screen name="ChooseTontineAction" component={ChooseTontineActionScreen} />
     <Stack.Screen name="CreateTontine" component={CreateTontineScreen} />
     <Stack.Screen name="ReglementTontine" component={ReglementTontineScreen} />
@@ -80,15 +84,23 @@ const MainStack = () => (
     <Stack.Screen name="MyTontines" component={MyTontinesScreen} />
     <Stack.Screen name="ManageTontines" component={ManageTontinesScreen} />
     <Stack.Screen name="TontineDetails" component={TontineDetailsScreen} />
+    
+    {/* Transactions */}
     <Stack.Screen name="MyTransactions" component={MyTransactionsScreen} />
     <Stack.Screen name="TransactionsValidation" component={TransactionsValidationScreen} />
     <Stack.Screen name="CreateTransaction" component={CreateTransactionScreen} />
     <Stack.Screen name="TransactionDetails" component={TransactionDetailsScreen} />
+    
+    {/* Validation Requests */}
     <Stack.Screen name="CreateValidationRequest" component={CreateValidationRequestScreen} />
     <Stack.Screen name="MyValidationRequests" component={MyValidationRequestsScreen} />
     <Stack.Screen name="PendingValidations" component={PendingValidationsScreen} />
+    
+    {/* Notifications */}
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
-    <Stack.Screen name="Wallet" component={WalletPlaceholder} />
+    
+    {/* Wallet */}
+    <Stack.Screen name="Wallet" component={WalletScreen} />
   </Stack.Navigator>
 );
 
@@ -96,13 +108,20 @@ const AppNavigator = () => {
   const { isAuthenticated, loading, requiresPasswordChange } = useAuthContext();
 
   useEffect(() => {
-    console.log('AppNavigator State:', { isAuthenticated, requiresPasswordChange, loading });
+    console.log('AppNavigator State:', { 
+      isAuthenticated, 
+      requiresPasswordChange, 
+      loading 
+    });
   }, [isAuthenticated, requiresPasswordChange, loading]);
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
         <ActivityIndicator size="large" color="#004aad" />
+        <Text style={{ marginTop: 15, fontSize: 14, color: '#666' }}>
+          Chargement...
+        </Text>
       </View>
     );
   }
@@ -113,7 +132,10 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="FirstPasswordChange" 
           component={FirstPasswordChangeScreen}
-          options={{ animationEnabled: false }}
+          options={{ 
+            animationEnabled: false,
+            gestureEnabled: false 
+          }}
         />
       </Stack.Navigator>
     );

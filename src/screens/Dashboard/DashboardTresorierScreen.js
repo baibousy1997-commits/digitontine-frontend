@@ -10,6 +10,7 @@ import {
   StyleSheet,
   StatusBar,
   FlatList,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,35 +30,34 @@ const DashboardTresorierScreen = ({ navigation }) => {
     loadDashboard();
   }, []);
 
-const loadDashboard = async () => {
-  try {
-    setLoading(true);
-    
-    console.log('TRESORIER - Chargement dashboard tresorier...');
-    
-    const result = await dashboardService.getDashboardTresorier();
-    
-    if (result.success) {
-      const data = result.data?.data;
-      console.log('Dashboard data:', data);
-      setDashboardData(data);
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
       
-      // ✅ Les tontines viennent maintenant du dashboard
-      const tontinesList = data?.mesTontines || [];
-      console.log('Tontines du trésorier:', tontinesList.length);
-      setMesTontines(tontinesList);
-    } else {
-      console.error('Erreur dashboard:', result.error);
-      setDashboardData(null);
-      setMesTontines([]);
+      console.log('TRESORIER - Chargement dashboard tresorier...');
+      
+      const result = await dashboardService.getDashboardTresorier();
+      
+      if (result.success) {
+        const data = result.data?.data;
+        console.log('Dashboard data:', data);
+        setDashboardData(data);
+        
+        const tontinesList = data?.mesTontines || [];
+        console.log('Tontines du tresorier:', tontinesList.length);
+        setMesTontines(tontinesList);
+      } else {
+        console.error('Erreur dashboard:', result.error);
+        setDashboardData(null);
+        setMesTontines([]);
+      }
+      
+    } catch (error) {
+      console.error('Erreur chargement dashboard tresorier:', error);
+    } finally {
+      setLoading(false);
     }
-    
-  } catch (error) {
-    console.error('Erreur chargement dashboard tresorier:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -117,7 +117,6 @@ const loadDashboard = async () => {
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Alerte transactions en attente */}
         {transactionsEnAttenteCount > 0 && (
           <TouchableOpacity
             style={[styles.alertBox, { backgroundColor: '#fff3cd' }]}
@@ -135,7 +134,6 @@ const loadDashboard = async () => {
           </TouchableOpacity>
         )}
 
-        {/* KPIs Financiers */}
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Financier</Text>
         <View style={styles.kpiRow}>
           <View style={[styles.kpiCard, { backgroundColor: theme.surface }]}>
@@ -173,7 +171,6 @@ const loadDashboard = async () => {
           </View>
         </View>
 
-        {/* Penalites */}
         <View style={[styles.infoCard, { backgroundColor: theme.surface }]}>
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Total penalites</Text>
@@ -183,7 +180,6 @@ const loadDashboard = async () => {
           </View>
         </View>
 
-        {/* Mes tontines (Tresorier) */}
         {mesTontines.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
@@ -211,7 +207,7 @@ const loadDashboard = async () => {
                       {tontine.nom}
                     </Text>
                     <Text style={[styles.tontineInfo, { color: theme.textSecondary }]}>
-                      {tontine.nombreMembres || 0} membres • {tontine.montantCotisation?.toLocaleString()} FCFA
+                      {tontine.nombreMembres || 0} membres - {tontine.montantCotisation?.toLocaleString()} FCFA
                     </Text>
                   </View>
                   <View style={[
@@ -226,7 +222,6 @@ const loadDashboard = async () => {
           </>
         )}
 
-        {/* Transactions en attente */}
         {transactionsEnAttente.length > 0 && (
           <>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
@@ -272,7 +267,6 @@ const loadDashboard = async () => {
           </>
         )}
 
-        {/* Top 5 membres ponctuels */}
         {topMembres.length > 0 && (
           <>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Membres ponctuels</Text>
@@ -300,45 +294,73 @@ const loadDashboard = async () => {
           </>
         )}
 
-      {/* Actions rapides */}
-<Text style={[styles.sectionTitle, { color: theme.text }]}>Actions rapides</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Mes Cotisations</Text>
 
-{/*  BOUTON 1 - Demandes à valider (Admin) */}
-<TouchableOpacity
-  style={[styles.actionButton, { backgroundColor: '#FF6B6B' }]}
-  onPress={() => navigation.navigate('PendingValidations')}
->
-  <MaterialCommunityIcons name="shield-check" size={24} color="#fff" />
-  <Text style={styles.actionButtonText}>Demandes à valider (Admin)</Text>
-</TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: Colors.accentGreen }]}
+          onPress={() => {
+            if (mesTontines && mesTontines.length > 0) {
+              const premiereTontine = mesTontines[0];
+              navigation.navigate('CreateTransaction', {
+                tontineId: getTontineId(premiereTontine),
+                tontineName: premiereTontine.nom,
+                userRole: 'tresorier'
+              });
+            } else {
+              Alert.alert(
+                'Aucune tontine',
+                'Vous n\'etes assigne a aucune tontine. Contactez l\'administrateur.',
+                [{ text: 'OK' }]
+              );
+            }
+          }}
+          disabled={!mesTontines || mesTontines.length === 0}
+        >
+          <MaterialCommunityIcons name="cash-plus" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Payer une cotisation</Text>
+        </TouchableOpacity>
 
-{/*  BOUTON 2 - Valider les transactions */}
-<TouchableOpacity
-  style={[styles.actionButton, { backgroundColor: Colors.accentYellow }]}
-  onPress={() => navigation.navigate('TransactionsValidation')}
->
-  <Ionicons name="checkmark-done" size={24} color="#333" />
-  <Text style={[styles.actionButtonText, { color: '#333' }]}>Valider les transactions</Text>
-</TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#6C63FF' }]}
+          onPress={() => navigation.navigate('MyTransactions')}
+        >
+          <Ionicons name="receipt" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Mes cotisations</Text>
+        </TouchableOpacity>
 
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Actions rapides</Text>
 
-{/*  BOUTON 3 - Historique des transactions */}
-<TouchableOpacity
-  style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
-  onPress={() => navigation.navigate('TransactionsList')}
->
-  <MaterialCommunityIcons name="finance" size={24} color="#fff" />
-  <Text style={styles.actionButtonText}>Historique des transactions</Text>
-</TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#FF6B6B' }]}
+          onPress={() => navigation.navigate('PendingValidations')}
+        >
+          <MaterialCommunityIcons name="shield-check" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Demandes a valider (Admin)</Text>
+        </TouchableOpacity>
 
-{/*  BOUTON 4 - Voir mes tontines */}
-<TouchableOpacity
-  style={[styles.actionButton, { backgroundColor: Colors.accentGreen }]}
-  onPress={() => navigation.navigate('MyTontines')}
->
-  <MaterialCommunityIcons name="hand-coin" size={24} color="#fff" />
-  <Text style={styles.actionButtonText}>Voir mes tontines</Text>
-</TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: Colors.accentYellow }]}
+          onPress={() => navigation.navigate('TransactionsValidation')}
+        >
+          <Ionicons name="checkmark-done" size={24} color="#333" />
+          <Text style={[styles.actionButtonText, { color: '#333' }]}>Valider les transactions</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: Colors.primaryDark }]}
+          onPress={() => navigation.navigate('TransactionsList')}
+        >
+          <MaterialCommunityIcons name="finance" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Historique des transactions</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: Colors.accentGreen }]}
+          onPress={() => navigation.navigate('MyTontines')}
+        >
+          <MaterialCommunityIcons name="hand-coin" size={24} color="#fff" />
+          <Text style={styles.actionButtonText}>Voir mes tontines</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

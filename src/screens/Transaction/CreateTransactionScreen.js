@@ -1,4 +1,4 @@
-// src/screens/Transaction/CreateTransactionScreen.js
+// src/screens/Transaction/CreateTransactionScreen.js - VERSION CORRIGEE
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -35,7 +35,7 @@ const CreateTransactionScreen = ({ navigation, route }) => {
   const [showTontinePicker, setShowTontinePicker] = useState(false);
   const [showEcheancePicker, setShowEcheancePicker] = useState(false);
 
-  const moyensPaiement = ['Wave', 'Orange Money', 'Cash'];
+  const moyensPaiement = ['Wave',  'Payement'];
 
   useEffect(() => {
     loadTontines();
@@ -49,7 +49,10 @@ const CreateTransactionScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     if (selectedTontine) {
-      loadTontineDetails(selectedTontine.id);
+      const tontineIdToLoad = selectedTontine._id || selectedTontine.id;
+      if (tontineIdToLoad) {
+        loadTontineDetails(tontineIdToLoad);
+      }
     }
   }, [selectedTontine]);
 
@@ -62,19 +65,42 @@ const CreateTransactionScreen = ({ navigation, route }) => {
   const loadTontines = async () => {
     try {
       setLoading(true);
-      const result = await tontineService.listTontines({ statut: 'Active' });
+      console.log('Chargement liste des tontines...');
+      
+      const result = await tontineService.mesTontines();
       
       if (result.success) {
         const tontinesList = result.data?.data?.tontines || [];
-        setTontines(tontinesList);
+        console.log(`${tontinesList.length} tontine(s) chargee(s)`);
+        
+        // FILTRER: Uniquement les tontines actives
+        const tontinesActives = tontinesList.filter(t => t.statut === 'Active');
+        console.log(`${tontinesActives.length} tontine(s) active(s)`);
+        
+        setTontines(tontinesActives);
         
         if (tontineId) {
-          const found = tontinesList.find(t => t.id === tontineId);
-          setSelectedTontine(found || null);
+          const found = tontinesActives.find(t => t.id === tontineId || t._id === tontineId);
+          if (found) {
+            setSelectedTontine(found);
+          } else {
+            console.warn('Tontine non trouvee dans la liste active');
+          }
         }
+        
+        if (tontinesActives.length === 0) {
+          Alert.alert(
+            'Aucune tontine active',
+            'Vous n\'avez pas de tontine active pour creer une transaction.'
+          );
+        }
+      } else {
+        console.error('Erreur:', result.error);
+        Alert.alert('Erreur', result.error?.message || 'Erreur de chargement');
       }
     } catch (error) {
       console.error('Erreur chargement tontines:', error);
+      Alert.alert('Erreur', 'Impossible de charger les tontines');
     } finally {
       setLoading(false);
     }
@@ -82,25 +108,81 @@ const CreateTransactionScreen = ({ navigation, route }) => {
 
   const loadTontineDetails = async (id) => {
     try {
-      const result = await tontineService.getTontineDetails(id);
+      console.log('Chargement details tontine:', id);
+      
+      // VALIDATION: Verifier que l'ID est valide
+      if (!id) {
+        console.error('ID de tontine invalide');
+        Alert.alert('Erreur', 'ID de tontine invalide');
+        return;
+      }
+      
+      // CORRECTION: Toujours utiliser l'endpoint membre
+      const result = await tontineService.getTontineDetailsForMember(id);
+      
+      console.log('Resultat API:', result.success);
+      console.log('Structure data:', result.data);
       
       if (result.success) {
         const details = result.data?.data?.tontine;
+        
+        // VALIDATION: Verifier que les details existent
+        if (!details) {
+          console.error('Aucun detail de tontine recu');
+          Alert.alert('Erreur', 'Impossible de recuperer les details de la tontine');
+          return;
+        }
+        
+        console.log('Details tontine recus:', details.nom);
         setTontineDetails(details);
         
-        if (details.calendrierCotisations) {
+        // VALIDATION: Verifier le calendrier
+        if (details.calendrierCotisations && Array.isArray(details.calendrierCotisations)) {
+          console.log('Calendrier disponible:', details.calendrierCotisations.length, 'echeances');
+          
           const echeancesNonPayees = details.calendrierCotisations.filter(
             e => e.statut === 'en_attente' || e.statut === 'en_cours'
           );
+          
+          console.log('Echeances non payees:', echeancesNonPayees.length);
           setEcheances(echeancesNonPayees);
           
           if (echeancesNonPayees.length > 0) {
             setSelectedEcheance(echeancesNonPayees[0]);
+          } else {
+            Alert.alert(
+              'Information',
+              'Toutes vos cotisations sont a jour !'
+            );
           }
+        } else {
+          console.warn('Pas de calendrier cotisations disponible');
+          setEcheances([]);
+          Alert.alert(
+            'Information',
+            'Aucune echeance disponible pour cette tontine. Contactez le tresorier.'
+          );
         }
+      } else {
+        // AMELIORATION: Message d'erreur plus detaille
+        const errorMsg = result.error?.message || 'Erreur inconnue';
+        console.error('Erreur chargement details:', errorMsg);
+        console.error('Code erreur:', result.error?.code);
+        
+        Alert.alert(
+          'Erreur',
+          `Impossible de charger les details de la tontine.\n\n${errorMsg}`
+        );
       }
     } catch (error) {
-      console.error('Erreur chargement details tontine:', error);
+      console.error('Exception chargement details tontine:', error);
+      console.error('Message:', error.message);
+      console.error('Stack:', error.stack);
+      
+      Alert.alert(
+        'Erreur',
+        'Une erreur technique est survenue. Veuillez reessayer.'
+      );
     }
   };
 
@@ -147,12 +229,16 @@ const CreateTransactionScreen = ({ navigation, route }) => {
     setSubmitting(true);
     
     try {
+      const tontineIdToSend = selectedTontine._id || selectedTontine.id;
+      
       const payload = {
-        tontineId: selectedTontine.id,
+        tontineId: tontineIdToSend,
         montant: montantTotal,
         moyenPaiement: moyenPaiement,
         echeanceNumero: selectedEcheance.numeroEcheance,
       };
+      
+      console.log('Payload transaction:', payload);
       
       const result = await transactionService.createTransaction(payload);
       
@@ -237,7 +323,7 @@ const CreateTransactionScreen = ({ navigation, route }) => {
               <ScrollView style={{ maxHeight: 200 }}>
                 {tontines.map((tontine) => (
                   <TouchableOpacity
-                    key={tontine.id}
+                    key={tontine.id || tontine._id}
                     style={styles.dropdownItem}
                     onPress={() => {
                       setSelectedTontine(tontine);

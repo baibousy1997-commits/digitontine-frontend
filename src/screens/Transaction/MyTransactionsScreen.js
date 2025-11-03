@@ -1,4 +1,4 @@
-// src/screens/Transaction/MyTransactionsScreen.js
+// src/screens/Transaction/MyTransactionsScreen.js - VERSION CORRIGEE
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -36,10 +36,28 @@ const MyTransactionsScreen = ({ navigation }) => {
       const params = { page: pageNum, limit: 20 };
       if (filter !== 'all') params.statut = filter;
 
+      console.log('Chargement transactions avec params:', params);
       const result = await transactionService.getMyTransactions(params);
 
+      console.log('Resultat complet:', result);
+      console.log('Structure data:', result.data);
+
       if (result.success) {
-        const newTransactions = result.data?.data || [];
+        // CORRECTION: Gerer differentes structures de reponse
+        let newTransactions = [];
+        
+        if (Array.isArray(result.data?.data?.data)) {
+          // Structure avec pagination: { data: { data: { data: [...] } } }
+          newTransactions = result.data.data.data;
+        } else if (Array.isArray(result.data?.data)) {
+          // Structure simple: { data: { data: [...] } }
+          newTransactions = result.data.data;
+        } else if (Array.isArray(result.data)) {
+          // Structure directe: { data: [...] }
+          newTransactions = result.data;
+        }
+        
+        console.log('Transactions extraites:', newTransactions.length);
         
         if (append) {
           setTransactions(prev => [...prev, ...newTransactions]);
@@ -49,9 +67,14 @@ const MyTransactionsScreen = ({ navigation }) => {
         
         setHasMore(newTransactions.length === 20);
         setPage(pageNum);
+      } else {
+        console.error('Erreur API:', result.error);
+        setTransactions([]);
       }
     } catch (error) {
-      console.error('Erreur chargement transactions:', error);
+      console.error('Exception chargement transactions:', error);
+      console.error('Message:', error.message);
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
@@ -87,65 +110,69 @@ const MyTransactionsScreen = ({ navigation }) => {
     }
   };
 
-  const renderTransaction = ({ item }) => (
-    <TouchableOpacity
-      style={[styles.transactionCard, { backgroundColor: theme.surface }]}
-      onPress={() => navigation.navigate('TransactionDetails', { transactionId: item.id })}
-    >
-      <View style={styles.transactionHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.transactionReference, { color: theme.text }]}>
-            {item.reference}
-          </Text>
-          <Text style={[styles.transactionTontine, { color: theme.textSecondary }]}>
-            {item.tontine || 'Tontine'}
-          </Text>
-        </View>
-        <View style={[styles.statutBadge, { backgroundColor: getStatutColor(item.statut) }]}>
-          <Ionicons name={getStatutIcon(item.statut)} size={16} color="#fff" />
-          <Text style={styles.statutText}>{item.statut}</Text>
-        </View>
-      </View>
-
-      <View style={styles.transactionBody}>
-        <View style={styles.amountRow}>
-          <Text style={[styles.amountLabel, { color: theme.textSecondary }]}>
-            Montant total
-          </Text>
-          <Text style={[styles.amount, { color: Colors.accentGreen }]}>
-            {item.montant?.toLocaleString()} FCFA
-          </Text>
-        </View>
-
-        {item.montantPenalite > 0 && (
-          <View style={styles.penaliteRow}>
-            <Text style={[styles.penaliteLabel, { color: theme.textSecondary }]}>
-              Dont penalites
+  const renderTransaction = ({ item }) => {
+    const transactionId = item._id || item.id;
+    
+    return (
+      <TouchableOpacity
+        style={[styles.transactionCard, { backgroundColor: theme.surface }]}
+        onPress={() => navigation.navigate('TransactionDetails', { transactionId })}
+      >
+        <View style={styles.transactionHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.transactionReference, { color: theme.text }]}>
+              {item.reference}
             </Text>
-            <Text style={[styles.penaliteValue, { color: Colors.danger }]}>
-              {item.montantPenalite?.toLocaleString()} FCFA
+            <Text style={[styles.transactionTontine, { color: theme.textSecondary }]}>
+              {item.tontine || 'Tontine'}
             </Text>
           </View>
-        )}
-      </View>
-
-      <View style={styles.transactionFooter}>
-        <View style={styles.footerRow}>
-          <Ionicons name="calendar-outline" size={14} color={theme.placeholder} />
-          <Text style={[styles.dateText, { color: theme.placeholder }]}>
-            {new Date(item.dateTransaction).toLocaleDateString('fr-FR')}
-          </Text>
+          <View style={[styles.statutBadge, { backgroundColor: getStatutColor(item.statut) }]}>
+            <Ionicons name={getStatutIcon(item.statut)} size={16} color="#fff" />
+            <Text style={styles.statutText}>{item.statut}</Text>
+          </View>
         </View>
 
-        <View style={styles.footerRow}>
-          <MaterialCommunityIcons name="wallet-outline" size={14} color={theme.placeholder} />
-          <Text style={[styles.moyenText, { color: theme.placeholder }]}>
-            {item.moyenPaiement}
-          </Text>
+        <View style={styles.transactionBody}>
+          <View style={styles.amountRow}>
+            <Text style={[styles.amountLabel, { color: theme.textSecondary }]}>
+              Montant total
+            </Text>
+            <Text style={[styles.amount, { color: Colors.accentGreen }]}>
+              {item.montant?.toLocaleString()} FCFA
+            </Text>
+          </View>
+
+          {item.montantPenalite > 0 && (
+            <View style={styles.penaliteRow}>
+              <Text style={[styles.penaliteLabel, { color: theme.textSecondary }]}>
+                Dont penalites
+              </Text>
+              <Text style={[styles.penaliteValue, { color: Colors.danger }]}>
+                {item.montantPenalite?.toLocaleString()} FCFA
+              </Text>
+            </View>
+          )}
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+
+        <View style={styles.transactionFooter}>
+          <View style={styles.footerRow}>
+            <Ionicons name="calendar-outline" size={14} color={theme.placeholder} />
+            <Text style={[styles.dateText, { color: theme.placeholder }]}>
+              {new Date(item.dateTransaction).toLocaleDateString('fr-FR')}
+            </Text>
+          </View>
+
+          <View style={styles.footerRow}>
+            <MaterialCommunityIcons name="wallet-outline" size={14} color={theme.placeholder} />
+            <Text style={[styles.moyenText, { color: theme.placeholder }]}>
+              {item.moyenPaiement}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -193,19 +220,31 @@ const MyTransactionsScreen = ({ navigation }) => {
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primaryDark} />
+          <Text style={{ color: theme.text, marginTop: 10 }}>Chargement...</Text>
         </View>
       ) : transactions.length === 0 ? (
         <View style={styles.emptyContainer}>
           <MaterialCommunityIcons name="receipt-text-outline" size={80} color={theme.placeholder} />
           <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-            Aucune transaction
+            {filter === 'all' 
+              ? 'Aucune transaction'
+              : `Aucune transaction ${filter.toLowerCase()}`
+            }
           </Text>
+          {transactions.length === 0 && filter !== 'all' && (
+            <TouchableOpacity 
+              style={styles.showAllButton}
+              onPress={() => setFilter('all')}
+            >
+              <Text style={styles.showAllButtonText}>Voir toutes les transactions</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <FlatList
           data={transactions}
           renderItem={renderTransaction}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => (item._id || item.id || index.toString())}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -263,6 +302,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginTop: 20,
+  },
+  showAllButton: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: Colors.primaryDark,
+    borderRadius: 20,
+  },
+  showAllButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   listContent: { padding: 20 },
   transactionCard: {

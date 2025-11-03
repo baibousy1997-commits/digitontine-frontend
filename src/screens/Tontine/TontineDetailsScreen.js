@@ -79,18 +79,29 @@ const TontineDetailsScreen = ({ navigation, route }) => {
 //  REMPLACER la fonction loadInvitations (ligne ~56)
 
 const loadInvitations = async () => {
+  //  VÉRIFIER LE RÔLE AVANT D'APPELER L'API
+  const currentUser = user;
+  const isAdmin = currentUser?.role?.toLowerCase() === 'admin' || 
+                  currentUser?.role?.toLowerCase() === 'administrateur';
+  
+  if (!isAdmin) {
+    console.log(' Invitations réservées aux admins - Skip');
+    setInvitations([]);
+    setLoadingInvitations(false);
+    return; //  SORTIR ICI POUR LES NON-ADMINS
+  }
+
+  //   (seulement pour les admins)
   try {
     setLoadingInvitations(true);
-    console.log('🔍 Chargement des invitations pour tontineId:', tontineId);
+    console.log('🔍 [ADMIN] Chargement des invitations pour tontineId:', tontineId);
 
-    //  NOUVELLE MÉTHODE : Appeler l'endpoint backend spécifique
     const invitationsResult = await tontineService.getTontineInvitations(tontineId);
 
     if (invitationsResult.success && invitationsResult.data?.data?.invitations) {
       const invitationsData = invitationsResult.data.data.invitations;
       console.log(` ${invitationsData.length} invitation(s) trouvée(s)`);
       
-      //  Log détaillé pour debug
       invitationsData.forEach(inv => {
         console.log(`  - ${inv.memberName} (${inv.memberEmail}) : ${inv.statut}`);
       });
@@ -107,7 +118,6 @@ const loadInvitations = async () => {
     setLoadingInvitations(false);
   }
 };
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();

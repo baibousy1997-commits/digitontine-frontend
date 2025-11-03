@@ -12,7 +12,7 @@ const CreateTontineScreen = ({ navigation }) => {
   const [tresoriers, setTresoriers] = useState([]);
   const [loadingTresoriers, setLoadingTresoriers] = useState(true);
   
-// ✅ CORRECTION 1 : Valeurs par défaut pour tauxPenalite et delaiGrace
+//  CORRECTION 1 : Valeurs par défaut pour tauxPenalite et delaiGrace
 const [formData, setFormData] = useState({
   nom: '',
   description: '',
@@ -21,8 +21,8 @@ const [formData, setFormData] = useState({
   dateDebut: '',
   nombreMembresMin: '1',
   nombreMembresMax: '50',
-  tauxPenalite: '5',      // ✅ Valeur par défaut
-  delaiGrace: '2',        // ✅ Valeur par défaut
+  tauxPenalite: '',      // ✅ Valeur par défaut
+  delaiGrace: '',        // ✅ Valeur par défaut
   tresorierAssigneId: '',
 });
 

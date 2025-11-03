@@ -417,10 +417,28 @@ const HomeScreen = ({ navigation }) => {
           <Text style={HomeStyles.navTextActive}>Accueil</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={HomeStyles.navItem} onPress={() => navigation.navigate('Wallet')}>
+       <TouchableOpacity 
+  style={HomeStyles.navItem} 
+  onPress={() => {
+    // Si l'utilisateur a des tontines, passer la première
+    if (mesTontines && mesTontines.length > 0) {
+      const premiereTontine = mesTontines[0];
+      navigation.navigate('Wallet', {
+        tontineId: premiereTontine._id || premiereTontine.id,
+        tontineName: premiereTontine.nom
+      });
+    } else {
+      // Sinon, naviguer sans paramètres (pour gérer ce cas dans WalletScreen)
+      navigation.navigate('Wallet');
+    }
+  }}
+>
           <Ionicons name="wallet-outline" size={24} color={theme.placeholder} />
-          <Text style={[HomeStyles.navTextInactive, { color: theme.placeholder }]}>Wallet</Text>
+          <Text style={[HomeStyles.navTextInactive, { color: theme.placeholder }]}>Historiques</Text>
         </TouchableOpacity>
+
+
+        
 
         {userRole === 'admin' && (
           <TouchableOpacity
