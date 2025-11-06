@@ -10,9 +10,11 @@ import {
   Alert,
   Platform,
   UIManager,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '../../constants/colors';
+import { useTheme } from '../../context/ThemeContext';
 import authService from '../../services/auth/authService';
 
 // Activer LayoutAnimation sur Android
@@ -21,6 +23,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const ProfileScreen = ({ navigation }) => {
+  const { theme, isDarkMode } = useTheme();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -33,24 +36,24 @@ const ProfileScreen = ({ navigation }) => {
       setLoading(true);
       const result = await authService.getMe();
       
-      console.log('📥 Résultat COMPLET getMe:', JSON.stringify(result, null, 2));
-      console.log('📦 result.data:', result.data);
-      console.log('👤 result.data?.prenom:', result.data?.prenom);
-      console.log('📧 result.data?.email:', result.data?.email);
+      console.log('Resultat COMPLET getMe:', JSON.stringify(result, null, 2));
+      console.log('result.data:', result.data);
+      console.log('result.data?.prenom:', result.data?.prenom);
+      console.log('result.data?.email:', result.data?.email);
       
-      // ✅ CORRECTION : data est directement l'objet user
+      // CORRECTION : data est directement l'objet user
       if (result.success && result.data) {
-        console.log('✅ User chargé:', result.data);
+        console.log('User charge:', result.data);
         setUser(result.data);
       } else {
-        console.log('❌ Erreur:', result.error);
+        console.log('Erreur:', result.error);
         Alert.alert(
           'Erreur',
           result.error?.message || 'Impossible de charger le profil'
         );
       }
     } catch (error) {
-      console.error('💥 Exception:', error);
+      console.error('Exception:', error);
       Alert.alert('Erreur', 'Une erreur est survenue');
     } finally {
       setLoading(false);
@@ -64,6 +67,10 @@ const ProfileScreen = ({ navigation }) => {
     return `${firstInitial}${lastInitial}`;
   };
 
+  // Utiliser photoProfil si disponible, sinon photoIdentite comme fallback
+  const photoUrl = user?.photoProfil || user?.photoIdentite || null;
+  const hasPhoto = photoUrl && photoUrl.trim() !== '';
+
   const formatPhone = (phone) => {
     if (!phone) return 'Non renseigné';
     // Format : +221 77 000 00 00
@@ -76,18 +83,18 @@ const ProfileScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.headerBackground} />
+        <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={26} color="#fff" />
+            <Ionicons name="arrow-back" size={26} color={theme.textLight} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Mon Profil</Text>
+          <Text style={[styles.headerTitle, { color: theme.textLight }]}>Mon Profil</Text>
           <View style={{ width: 26 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primaryDark} />
-          <Text style={styles.loadingText}>Chargement du profil...</Text>
+          <ActivityIndicator size="large" color={theme.primaryDark} />
+          <Text style={[styles.loadingText, { color: theme.text }]}>Chargement du profil...</Text>
         </View>
       </View>
     );
@@ -95,19 +102,19 @@ const ProfileScreen = ({ navigation }) => {
 
   if (!user) {
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.headerBackground} />
+        <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={26} color="#fff" />
+            <Ionicons name="arrow-back" size={26} color={theme.textLight} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Mon Profil</Text>
+          <Text style={[styles.headerTitle, { color: theme.textLight }]}>Mon Profil</Text>
           <View style={{ width: 26 }} />
         </View>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={60} color="#999" />
-          <Text style={styles.errorText}>Impossible de charger le profil</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadUserProfile}>
+          <Ionicons name="alert-circle-outline" size={60} color={theme.textSecondary} />
+          <Text style={[styles.errorText, { color: theme.text }]}>Impossible de charger le profil</Text>
+          <TouchableOpacity style={[styles.retryButton, { backgroundColor: theme.primaryDark }]} onPress={loadUserProfile}>
             <Text style={styles.retryButtonText}>Réessayer</Text>
           </TouchableOpacity>
         </View>
@@ -116,75 +123,90 @@ const ProfileScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.primaryDark} />
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.headerBackground} />
+      <View style={[styles.header, { backgroundColor: theme.headerBackground }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={26} color="#fff" />
+          <Ionicons name="arrow-back" size={26} color={theme.textLight} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Mon Profil</Text>
+        <Text style={[styles.headerTitle, { color: theme.textLight }]}>Mon Profil</Text>
         <TouchableOpacity onPress={loadUserProfile}>
-          <Ionicons name="refresh" size={24} color="#fff" />
+          <Ionicons name="refresh" size={24} color={theme.textLight} />
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Avatar avec initiales */}
+        {/* Avatar avec photo ou initiales */}
         <View style={styles.avatarContainer}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarInitials}>{getInitials()}</Text>
-          </View>
-          <Text style={styles.avatarName}>
+          {hasPhoto ? (
+            <Image 
+              source={{ uri: photoUrl }} 
+              style={styles.avatarCircle}
+            />
+          ) : (
+            <View style={[styles.avatarCircle, { backgroundColor: theme.primaryDark }]}>
+              <Text style={styles.avatarInitials}>{getInitials()}</Text>
+            </View>
+          )}
+          <Text style={[styles.avatarName, { color: theme.text }]}>
             {user.prenom} {user.nom}
           </Text>
-          <View style={styles.roleBadge}>
+          <View style={[styles.roleBadge, { backgroundColor: theme.primaryDark }]}>
             <Text style={styles.roleText}>{user.role}</Text>
           </View>
         </View>
 
         {/* Informations personnelles */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informations personnelles</Text>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.sectionTitle, { color: theme.primaryDark }]}>Informations personnelles</Text>
           
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Prénom</Text>
-            <Text style={styles.value}>{user.prenom || 'Non renseigné'}</Text>
+          <View style={[styles.infoRow, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Prénom</Text>
+            <Text style={[styles.value, { color: theme.text }]}>{user.prenom || 'Non renseigné'}</Text>
+          </View>
+
+          <View style={[styles.infoRow, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Nom</Text>
+            <Text style={[styles.value, { color: theme.text }]}>{user.nom || 'Non renseigné'}</Text>
+          </View>
+
+          <View style={[styles.infoRow, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Email</Text>
+            <Text style={[styles.value, { color: theme.text }]}>{user.email || 'Non renseigné'}</Text>
+          </View>
+
+          <View style={[styles.infoRow, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>CNI</Text>
+            <Text style={[styles.value, { color: theme.text }]}>{user.cni || 'Non renseigné'}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Nom</Text>
-            <Text style={styles.value}>{user.nom || 'Non renseigné'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Email</Text>
-            <Text style={styles.value}>{user.email || 'Non renseigné'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>CNI</Text>
-            <Text style={styles.value}>{user.cni || 'Non renseigné'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Numéro de téléphone</Text>
-            <Text style={styles.value}>{formatPhone(user.telephone)}</Text>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Numéro de téléphone</Text>
+            <Text style={[styles.value, { color: theme.text }]}>{formatPhone(user.telephone)}</Text>
           </View>
         </View>
 
         {/* Informations du compte */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informations du compte</Text>
+        <View style={[styles.section, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.sectionTitle, { color: theme.primaryDark }]}>Informations du compte</Text>
           
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>Rôle</Text>
-            <Text style={styles.value}>{user.role}</Text>
+          <View style={[styles.infoRow, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Rôle</Text>
+            <Text style={[styles.value, { color: theme.text }]}>{user.role}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Text style={styles.label}>Statut</Text>
-            <View style={[styles.statusBadge, user.isActive ? styles.activeStatus : styles.inactiveStatus]}>
-              <Text style={styles.statusText}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Statut</Text>
+            <View style={[
+              styles.statusBadge, 
+              user.isActive 
+                ? { backgroundColor: isDarkMode ? '#2E7D32' : '#E8F5E9' } 
+                : { backgroundColor: isDarkMode ? '#C62828' : '#FFEBEE' }
+            ]}>
+              <Text style={[
+                styles.statusText,
+                { color: user.isActive ? (isDarkMode ? '#81C784' : '#2E7D32') : (isDarkMode ? '#EF5350' : '#C62828') }
+              ]}>
                 {user.isActive ? 'Actif' : 'Inactif'}
               </Text>
             </View>
@@ -192,8 +214,8 @@ const ProfileScreen = ({ navigation }) => {
 
           {user.dateInscription && (
             <View style={styles.infoRow}>
-              <Text style={styles.label}>Membre depuis</Text>
-              <Text style={styles.value}>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>Membre depuis</Text>
+              <Text style={[styles.value, { color: theme.text }]}>
                 {new Date(user.dateInscription).toLocaleDateString('fr-FR', {
                   day: 'numeric',
                   month: 'long',
@@ -206,7 +228,7 @@ const ProfileScreen = ({ navigation }) => {
 
         {/* Bouton changer mot de passe */}
         <TouchableOpacity
-          style={styles.changePasswordButton}
+          style={[styles.changePasswordButton, { backgroundColor: theme.primaryDark }]}
           onPress={() => navigation.navigate('ChangePassword')}
         >
           <Ionicons name="lock-closed-outline" size={20} color="#fff" style={styles.buttonIcon} />
@@ -221,11 +243,9 @@ export default ProfileScreen;
 
 const styles = StyleSheet.create({
   container: { 
-    flex: 1, 
-    backgroundColor: '#F6F6F6' 
+    flex: 1,
   },
   header: {
-    backgroundColor: Colors.primaryDark,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -233,7 +253,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   headerTitle: { 
-    color: '#fff', 
     fontSize: 20, 
     fontWeight: '700' 
   },
@@ -248,7 +267,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
   errorContainer: {
     flex: 1,
@@ -258,13 +276,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#666',
     marginTop: 10,
     marginBottom: 20,
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: Colors.primaryDark,
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 25,
@@ -282,10 +298,10 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: Colors.primaryDark,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+    overflow: 'hidden',
   },
   avatarInitials: {
     color: '#fff',
@@ -295,11 +311,9 @@ const styles = StyleSheet.create({
   avatarName: { 
     fontSize: 24, 
     fontWeight: '700', 
-    color: Colors.primaryDark,
     marginBottom: 8,
   },
   roleBadge: {
-    backgroundColor: Colors.primaryDark,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 20,
@@ -311,7 +325,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   section: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -319,7 +332,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.primaryDark,
     marginBottom: 16,
   },
   infoRow: {
@@ -328,17 +340,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   label: { 
     fontSize: 15, 
-    color: '#666',
     flex: 1,
   },
   value: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#333',
     flex: 1,
     textAlign: 'right',
   },
@@ -347,18 +356,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  activeStatus: {
-    backgroundColor: '#E8F5E9',
-  },
-  inactiveStatus: {
-    backgroundColor: '#FFEBEE',
-  },
   statusText: {
     fontSize: 14,
     fontWeight: '600',
   },
   changePasswordButton: {
-    backgroundColor: Colors.primaryDark,
     borderRadius: 25,
     paddingVertical: 15,
     flexDirection: 'row',

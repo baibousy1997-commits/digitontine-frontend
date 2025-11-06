@@ -21,8 +21,8 @@ const [formData, setFormData] = useState({
   dateDebut: '',
   nombreMembresMin: '1',
   nombreMembresMax: '50',
-  tauxPenalite: '',      // ✅ Valeur par défaut
-  delaiGrace: '',        // ✅ Valeur par défaut
+  tauxPenalite: '',      // Valeur par défaut
+  delaiGrace: '',        // Valeur par défaut
   tresorierAssigneId: '',
 });
 
@@ -132,55 +132,115 @@ const handleChange = (field, value) => {
   }
 };
 
-//  CORRECTION 2 : Validation complète avec delaiGrace et tauxPenalite
+//  CORRECTION 2 : Validation complète avec messages d'erreur clairs
 const validateForm = () => {
-  if (!formData.nom.trim()) {
-    Alert.alert('Erreur', 'Le nom de la tontine est requis');
+  // Validation du nom
+  const nomTrim = formData.nom.trim();
+  if (!nomTrim) {
+    Alert.alert(
+      'Nom requis',
+      'Veuillez entrer un nom pour votre tontine.',
+      [{ text: 'OK' }]
+    );
+    return false;
+  }
+  if (nomTrim.length < 3) {
+    Alert.alert(
+      'Nom trop court',
+      'Le nom de la tontine doit contenir au moins 3 caractères.',
+      [{ text: 'OK' }]
+    );
     return false;
   }
 
-  //  NOUVEAU : Validation delaiGrace
-  const delaiGrace = parseInt(formData.delaiGrace) || 0;
-  if (delaiGrace < 0 || delaiGrace > 30) {
-    Alert.alert('Erreur', 'Le délai de grâce doit être entre 0 et 30 jours');
-    return false;
-  }
-
-  //  NOUVEAU : Validation tauxPenalite
-  const tauxPenalite = parseFloat(formData.tauxPenalite) || 0;
-  if (tauxPenalite < 0 || tauxPenalite > 50) {
-    Alert.alert('Erreur', 'Le taux de pénalité doit être entre 0 et 50%');
-    return false;
-  }
-
+  // Validation du montant
   const montant = parseInt(formData.montantCotisation);
-  if (!formData.montantCotisation || isNaN(montant) || montant <= 0) {
-    Alert.alert('Erreur', 'Le montant doit être supérieur à 0');
+  if (!formData.montantCotisation || isNaN(montant)) {
+    Alert.alert(
+      'Montant invalide',
+      'Veuillez entrer un montant de cotisation valide (nombre entier).',
+      [{ text: 'OK' }]
+    );
+    return false;
+  }
+  if (montant <= 0) {
+    Alert.alert(
+      'Montant invalide',
+      'Le montant de cotisation doit être supérieur à 0 FCFA.',
+      [{ text: 'OK' }]
+    );
     return false;
   }
 
+  // Validation délai de grâce
+  const delaiGrace = parseInt(formData.delaiGrace);
+  if (isNaN(delaiGrace) || delaiGrace < 0 || delaiGrace > 30) {
+    Alert.alert(
+      'Délai de grâce invalide',
+      'Le délai de grâce doit être un nombre entier entre 0 et 30 jours.',
+      [{ text: 'OK' }]
+    );
+    return false;
+  }
+
+  // Validation taux de pénalité
+  const tauxPenalite = parseFloat(formData.tauxPenalite);
+  if (isNaN(tauxPenalite) || tauxPenalite < 0 || tauxPenalite > 50) {
+    Alert.alert(
+      'Taux de pénalité invalide',
+      'Le taux de pénalité doit être un nombre entre 0 et 50% (exemple : 5 pour 5%).',
+      [{ text: 'OK' }]
+    );
+    return false;
+  }
+
+  // Validation nombre de membres (Admin)
   const minMembres = parseInt(formData.nombreMembresMin);
-  const maxMembres = parseInt(formData.nombreMembresMax);
-  
-  if (isNaN(minMembres) || minMembres < 1) {
-    Alert.alert('Erreur', 'Le minimum de membres à ajouter est de 1');
+  if (isNaN(minMembres)) {
+    Alert.alert(
+      'Nombre invalide',
+      'Veuillez sélectionner le nombre de membres à ajouter par l\'Administrateur (hors Admin et Trésorier).',
+      [{ text: 'OK' }]
+    );
     return false;
   }
-  
-  if (isNaN(maxMembres) || maxMembres < 1) {
-    Alert.alert('Erreur', 'Le maximum de membres supplémentaires doit être au moins 1');
-    return false;
-  }
-  
-  if (minMembres > maxMembres) {
-    Alert.alert('Erreur', 'Le minimum doit être inférieur ou égal au maximum');
+  if (minMembres < 1) {
+    Alert.alert(
+      'Nombre invalide',
+      'L\'Administrateur doit ajouter au moins 1 membre supplémentaire (hors Admin et Trésorier).',
+      [{ text: 'OK' }]
+    );
     return false;
   }
 
+  // Validation nombre de mois de tirage (durée de la tontine)
+  const maxMembres = parseInt(formData.nombreMembresMax);
+  const totalMembres = minMembres + 2; // Admin + Trésorier + membres à ajouter
+  if (isNaN(maxMembres)) {
+    Alert.alert(
+      'Nombre invalide',
+      'Veuillez sélectionner le nombre de mois de tirage (durée de la tontine).',
+      [{ text: 'OK' }]
+    );
+    return false;
+  }
+  // Validation cohérence : le nombre de mois doit être >= nombre total de membres
+  if (maxMembres < totalMembres) {
+    Alert.alert(
+      'Nombre invalide',
+      `Le nombre de mois de tirage (${maxMembres}) ne peut pas être inférieur au nombre total de membres (${totalMembres} : Admin + Trésorier + ${minMembres} membre(s) à ajouter).\n\n` +
+      `Normalement, avec ${totalMembres} membres, la durée minimale est de ${totalMembres} mois (1 mois par membre), mais vous pouvez choisir un nombre supérieur (ex: 6 mois pour 3 membres).`,
+      [{ text: 'OK' }]
+    );
+    return false;
+  }
+
+  // Validation trésorier
   if (!formData.tresorierAssigneId) {
     Alert.alert(
-      'Attention',
-      'Aucun trésorier assigné. La tontine ne pourra pas être activée sans trésorier.',
+      'Trésorier requis',
+      'Un trésorier doit être assigné à cette tontine pour pouvoir la gérer et valider les paiements.\n\n' +
+      'La tontine ne pourra pas être activée sans trésorier.',
       [
         { text: 'Annuler', style: 'cancel' },
         { 
@@ -420,13 +480,17 @@ const getTresorierNom = (id) => {
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Minimum de membres</Text>
+        <Text style={styles.sectionTitle}>Nombre de membres à ajouter (Admin)</Text>
+        <Text style={styles.helpText}>
+          Nombre minimum de membres à ajouter par l'Administrateur (hors Admin et Trésorier). 
+          L'Administrateur doit ajouter au moins {parseInt(formData.nombreMembresMin) || 1} membre(s) supplémentaire(s).
+        </Text>
         <TouchableOpacity 
           style={styles.dropdownButton}
           onPress={() => setShowMinPicker(!showMinPicker)}
         >
           <Text style={[styles.dropdownText, formData.nombreMembresMin && { color: '#333' }]}>
-            {formData.nombreMembresMin ? `${formData.nombreMembresMin}` : 'Sélectionnez le minimum de membres'}
+            {formData.nombreMembresMin ? `${formData.nombreMembresMin} membre(s) à ajouter` : 'Sélectionnez le nombre (Admin)'}
           </Text>
           <Ionicons name="chevron-down" size={20} color="#666" />
         </TouchableOpacity>
@@ -446,13 +510,18 @@ const getTresorierNom = (id) => {
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Maximum de membres (= Durée en {unit})</Text>
+        <Text style={styles.sectionTitle}>Nombre de mois de tirage = Durée de la tontine</Text>
+        <Text style={styles.helpText}>
+          Nombre de mois de tirage (durée totale de la tontine). 
+          Normalement, si vous avez {parseInt(formData.nombreMembresMin) || 1} membre(s) à ajouter, cela fait {parseInt(formData.nombreMembresMin) + 2 || 3} membres au total (Admin + Trésorier + {parseInt(formData.nombreMembresMin) || 1} membre), donc {parseInt(formData.nombreMembresMin) + 2 || 3} mois.
+          Mais vous pouvez choisir un nombre de mois supérieur (ex: {parseInt(formData.nombreMembresMax) || 50} mois pour {parseInt(formData.nombreMembresMin) + 2 || 3} membres).
+        </Text>
         <TouchableOpacity 
           style={styles.dropdownButton}
           onPress={() => setShowMaxPicker(!showMaxPicker)}
         >
           <Text style={[styles.dropdownText, formData.nombreMembresMax && { color: '#333' }]}>
-            {formData.nombreMembresMax ? `${formData.nombreMembresMax} ${unit}` : `Sélectionnez la durée en ${unit}`}
+            {formData.nombreMembresMax ? `${formData.nombreMembresMax} ${unit === 'mois' ? 'mois' : 'semaines'}` : `Sélectionnez le nombre de ${unit === 'mois' ? 'mois' : 'semaines'}`}
           </Text>
           <Ionicons name="chevron-down" size={20} color="#666" />
         </TouchableOpacity>
@@ -465,7 +534,9 @@ const getTresorierNom = (id) => {
                   handleChange('nombreMembresMax', d.toString()); 
                   setShowMaxPicker(false); 
                 }}>
-                  <Text style={styles.dropdownItem}>{d} {unit}</Text>
+                  <Text style={styles.dropdownItem}>
+                    {d} {unit === 'mois' ? 'mois' : unit}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -474,8 +545,10 @@ const getTresorierNom = (id) => {
 
         {formData.nombreMembresMax && (
           <Text style={styles.helperText}>
-            Durée totale : {formData.nombreMembresMax} {unit} 
-            (1 {unit === 'mois' ? 'mois' : 'semaine'} par membre)
+            Durée de la tontine : {formData.nombreMembresMax} {unit === 'mois' ? 'mois' : 'semaines'} de tirage
+            {unit === 'mois' && formData.nombreMembresMin && (
+              ` (${parseInt(formData.nombreMembresMin) + 2} membres = ${parseInt(formData.nombreMembresMin) + 2} mois minimum, mais vous avez choisi ${formData.nombreMembresMax} mois)`
+            )}
           </Text>
         )}
 

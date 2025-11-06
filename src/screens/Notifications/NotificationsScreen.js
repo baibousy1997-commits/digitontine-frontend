@@ -1,6 +1,7 @@
 // src/screens/Notifications/NotificationsScreen.js
 import React, { useState, useEffect, useCallback } from 'react';
 import validationService from '../../services/validation/validationService';
+import transactionService from '../../services/transaction/transactionService';
 import {
   View,
   Text,
@@ -10,6 +11,8 @@ import {
   RefreshControl,
   Alert,
   StyleSheet,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,14 +20,19 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import notificationService from '../../services/notification/notificationService';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuthContext } from '../../context/AuthContext';
 import Colors from '../../constants/colors';
 
 const NotificationsScreen = ({ navigation }) => {
   const { theme } = useTheme();
+  const { user } = useAuthContext();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState({});
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedTransactionId, setSelectedTransactionId] = useState(null);
+  const [rejectMotif, setRejectMotif] = useState('');
 
   useEffect(() => {
     loadNotifications();
@@ -165,7 +173,6 @@ const handleAction = async (notification, action) => {
     }
     // CAS 3 : VALIDATION DE DEMANDE (TRESORIER)
     else if (notification.type === 'VALIDATION_REQUEST') {
-      // EXTRACTION DIRECTE depuis notification.data
       const validationRequestId = notification.data?.validationRequestId;
       
       if (!validationRequestId) {
@@ -255,7 +262,69 @@ const handleAction = async (notification, action) => {
         );
       }
     }
-    // CAS 4 : Autres types
+    // 🆕 CAS 4 : VALIDATION DE COTISATION (TRESORIER ou ADMIN)
+    else if (notification.type === 'COTISATION_EN_ATTENTE') {
+      const transactionId = notification.data?.transactionId;
+      
+      if (!transactionId) {
+        Alert.alert('Erreur', 'Transaction introuvable');
+        return;
+      }
+
+      // Extraire les infos de la notification
+      const montant = notification.data?.montant || 0;
+      const membreNom = notification.message?.match(/(.+?) a effectue/)?.[1] || 
+                       notification.message?.match(/Le Trésorier (.+?) a effectué/)?.[1] ||
+                       notification.message?.match(/L'Admin (.+?) a effectué/)?.[1] ||
+                       'Un utilisateur';
+      const tontineNom = notification.message?.match(/pour "(.+?)"/)?.[1] || 'la tontine';
+      const isAdmin = user?.role === 'admin' || user?.role === 'Admin';
+      const isTresorier = user?.role === 'tresorier' || user?.role === 'Tresorier';
+
+      if (action === 'accepted') {
+        Alert.alert(
+          'Valider cette cotisation ?',
+          `${isAdmin ? 'Trésorier' : 'Membre'} : ${membreNom}\nTontine : ${tontineNom}\nMontant : ${montant.toLocaleString()} FCFA\n\nConfirmer la validation ?`,
+          [
+            { text: 'Annuler', style: 'cancel' },
+            {
+              text: 'Valider',
+              style: 'default',
+              onPress: async () => {
+                try {
+                  const result = await transactionService.validateTransaction(transactionId);
+
+                  if (result.success) {
+                    Alert.alert(
+                      'Cotisation validée !',
+                      `${isAdmin ? 'Le trésorier' : 'Le membre'} a été notifié de la validation.`,
+                      [{ text: 'OK' }]
+                    );
+                    
+                    await notificationService.markAsRead(notification._id);
+                    setNotifications(prev => prev.filter(n => n._id !== notification._id));
+                  } else {
+                    Alert.alert('Erreur', result.error?.message || 'Impossible de valider la cotisation');
+                  }
+                } catch (error) {
+                  console.error('Erreur validation cotisation:', error);
+                  Alert.alert(
+                    'Erreur', 
+                    error.response?.data?.message || error.message || 'Impossible de valider'
+                  );
+                }
+              }
+            }
+          ]
+        );
+      } else {
+        // Refuser la cotisation - Utiliser un modal au lieu de Alert.prompt
+        setSelectedTransactionId(transactionId);
+        setRejectMotif('');
+        setShowRejectModal(true);
+      }
+    }
+    // CAS 5 : Autres types
     else {
       Alert.alert('Info', 'Type de notification non gere');
     }
@@ -266,29 +335,6 @@ const handleAction = async (notification, action) => {
     setActionLoading(prev => ({ ...prev, [notification._id]: false }));
   }
 };
-  const deleteNotification = async (notificationId) => {
-    Alert.alert(
-      'Confirmer la suppression',
-      'Voulez-vous vraiment supprimer cette notification ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const result = await notificationService.deleteNotification(notificationId);
-              if (result.success) {
-                setNotifications(prev => prev.filter(n => n._id !== notificationId));
-              }
-            } catch (error) {
-              console.error('Erreur suppression:', error);
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const getNotificationIcon = (type) => {
     const icons = {
@@ -297,7 +343,9 @@ const handleAction = async (notification, action) => {
       TIRAGE_GAGNANT: { name: 'trophy', color: '#F59E0B', library: 'Ionicons' },
       COTISATION_RAPPEL: { name: 'time-outline', color: '#EF4444', library: 'Ionicons' },
       COTISATION_VALIDEE: { name: 'checkmark-circle', color: '#10B981', library: 'Ionicons' },
+      COTISATION_EN_ATTENTE: { name: 'cash-outline', color: '#F59E0B', library: 'Ionicons' },
       TONTINE_INVITATION: { name: 'mail', color: '#3B82F6', library: 'Ionicons' },
+      VALIDATION_REQUEST: { name: 'shield-checkmark-outline', color: '#8B5CF6', library: 'Ionicons' },
       SYSTEM: { name: 'information-circle', color: '#6B7280', library: 'Ionicons' },
     };
     return icons[type] || icons.SYSTEM;
@@ -523,6 +571,115 @@ const handleAction = async (notification, action) => {
           }
         />
       )}
+
+      {/* Modal de rejet de transaction */}
+      <Modal
+        visible={showRejectModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setShowRejectModal(false);
+          setSelectedTransactionId(null);
+          setRejectMotif('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface || '#fff' }]}>
+            <Text style={[styles.modalTitle, { color: theme.text || '#000' }]}>
+              Rejeter la cotisation
+            </Text>
+            
+            <Text style={[styles.modalSubtitle, { color: theme.textSecondary || '#666' }]}>
+              Veuillez indiquer le motif du rejet :
+            </Text>
+
+            <TextInput
+              style={[styles.motifInput, { 
+                backgroundColor: theme.inputBackground || theme.background || '#F9FAFB',
+                color: theme.text || '#000',
+                borderColor: theme.border || '#E0E0E0',
+              }]}
+              placeholder="Motif du rejet (obligatoire, min 5 caractères)"
+              placeholderTextColor={theme.placeholder || '#9CA3AF'}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              value={rejectMotif}
+              onChangeText={setRejectMotif}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: Colors.placeholder || '#9CA3AF' }]}
+                onPress={() => {
+                  setShowRejectModal(false);
+                  setSelectedTransactionId(null);
+                  setRejectMotif('');
+                }}
+                disabled={actionLoading[selectedTransactionId]}
+              >
+                <Text style={styles.modalButtonText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton, 
+                  { backgroundColor: Colors.dangerRed || '#EF4444' },
+                  actionLoading[selectedTransactionId] && { opacity: 0.5 }
+                ]}
+                onPress={async () => {
+                  if (!rejectMotif || rejectMotif.trim().length < 5) {
+                    Alert.alert('Erreur', 'Le motif doit contenir au moins 5 caractères');
+                    return;
+                  }
+
+                  setActionLoading(prev => ({ ...prev, [selectedTransactionId]: true }));
+                  
+                  try {
+                    const result = await transactionService.rejectTransaction(
+                      selectedTransactionId,
+                      rejectMotif.trim()
+                    );
+
+                    if (result.success) {
+                      Alert.alert(
+                        'Cotisation refusée',
+                        'L\'utilisateur a été notifié du refus.',
+                        [{ text: 'OK' }]
+                      );
+                      
+                      await notificationService.markAsRead(
+                        notifications.find(n => n.data?.transactionId === selectedTransactionId)?._id
+                      );
+                      setNotifications(prev => prev.filter(n => n.data?.transactionId !== selectedTransactionId));
+                      setShowRejectModal(false);
+                      setSelectedTransactionId(null);
+                      setRejectMotif('');
+                    } else {
+                      Alert.alert('Erreur', result.error?.message || 'Impossible de refuser la cotisation');
+                    }
+                  } catch (error) {
+                    console.error('Erreur refus cotisation:', error);
+                    Alert.alert(
+                      'Erreur',
+                      error.response?.data?.message || error.message || 'Impossible de refuser'
+                    );
+                  } finally {
+                    setActionLoading(prev => ({ ...prev, [selectedTransactionId]: false }));
+                  }
+                }}
+                disabled={actionLoading[selectedTransactionId]}
+              >
+                {actionLoading[selectedTransactionId] ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonText}>Confirmer le rejet</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -789,6 +946,48 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    padding: 20,
+    borderRadius: 15,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  motifInput: {
+    padding: 15,
+    borderRadius: 10,
+    fontSize: 15,
+    minHeight: 100,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 

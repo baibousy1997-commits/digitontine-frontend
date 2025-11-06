@@ -177,19 +177,19 @@ async changePassword(ancienMotDePasse, nouveauMotDePasse) {
  */
 async getMe() {
   try {
-    console.log('🔍 Appel API getMe...');
+    console.log('Appel API getMe...');
     const result = await get(API_CONFIG.ENDPOINTS.AUTH.GET_ME);
     
-    console.log('📦 Réponse brute getMe:', JSON.stringify(result, null, 2));
+    console.log('Reponse brute getMe:', JSON.stringify(result, null, 2));
     
     // Vérifier la structure de la réponse
     if (result.success) {
-      console.log('✅ Success = true');
-      console.log('📄 result.data:', result.data);
+      console.log('Success = true');
+      console.log('result.data:', result.data);
       
       // Si la réponse a result.data.data (double imbrication)
       if (result.data && result.data.data) {
-        console.log('⚠️ Double imbrication détectée - extraction de data.data');
+        console.log('Double imbrication detectee - extraction de data.data');
         return {
           success: true,
           data: result.data.data,
@@ -198,16 +198,16 @@ async getMe() {
       
       // Si la réponse a directement result.data
       if (result.data) {
-        console.log('✅ Structure normale - data directement accessible');
+        console.log('Structure normale - data directement accessible');
         return result;
       }
     }
     
-    console.log('❌ Pas de données dans la réponse');
+    console.log('Pas de donnees dans la reponse');
     return result;
     
   } catch (error) {
-    console.error('💥 Exception getMe:', error);
+    console.error('Exception getMe:', error);
     return {
       success: false,
       error: {

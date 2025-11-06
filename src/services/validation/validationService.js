@@ -110,6 +110,7 @@ const validationService = {
       BLOCK_TONTINE: 'Blocage de tontine',
       UNBLOCK_TONTINE: 'Déblocage de tontine',
       DELETE_TONTINE: 'Suppression de tontine',
+      VALIDATE_TRANSACTION: 'Validation de transaction',
     };
     return labels[actionType] || actionType;
   },

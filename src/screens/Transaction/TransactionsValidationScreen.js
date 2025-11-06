@@ -16,11 +16,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuthContext } from '../../context/AuthContext';
 import transactionService from '../../services/transaction/transactionService';
 import Colors from '../../constants/colors';
 
 const TransactionsValidationScreen = ({ navigation }) => {
   const { theme } = useTheme();
+  const { user } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [transactions, setTransactions] = useState([]);
@@ -28,6 +30,28 @@ const TransactionsValidationScreen = ({ navigation }) => {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [motifRejet, setMotifRejet] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Vérifier si l'utilisateur peut valider cette transaction
+  const canValidateTransaction = (transaction) => {
+    // Admin peut toujours valider
+    if (user?.role === 'admin' || user?.role === 'Admin' || user?.role === 'Administrateur') {
+      return true;
+    }
+
+    // Trésorier ne peut pas valider sa propre transaction
+    if (user?.role === 'tresorier' || user?.role === 'Tresorier') {
+      // Si la transaction appartient à l'utilisateur connecté
+      if (transaction.userId === user?.id || transaction.user?.id === user?.id) {
+        return false;
+      }
+      // Si la transaction appartient à un trésorier (même si ce n'est pas lui)
+      if (transaction.userRole === 'tresorier' || transaction.userRole === 'Tresorier') {
+        return false;
+      }
+    }
+
+    return true;
+  };
 
   useEffect(() => {
     loadTransactions();
@@ -185,25 +209,35 @@ const loadTransactions = async () => {
         )}
       </View>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={[styles.validateButton, actionLoading && { opacity: 0.5 }]}
-          onPress={() => handleValidate(item.id)}
-          disabled={actionLoading}
-        >
-          <Ionicons name="checkmark-circle" size={20} color="#fff" />
-          <Text style={styles.validateButtonText}>Valider</Text>
-        </TouchableOpacity>
+      {/* Vérifier si l'utilisateur peut valider cette transaction */}
+      {canValidateTransaction(item) ? (
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={[styles.validateButton, actionLoading && { opacity: 0.5 }]}
+            onPress={() => handleValidate(item.id)}
+            disabled={actionLoading}
+          >
+            <Ionicons name="checkmark-circle" size={20} color="#fff" />
+            <Text style={styles.validateButtonText}>Valider</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.rejectButton, actionLoading && { opacity: 0.5 }]}
-          onPress={() => openRejectModal(item)}
-          disabled={actionLoading}
-        >
-          <Ionicons name="close-circle" size={20} color="#fff" />
-          <Text style={styles.rejectButtonText}>Rejeter</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={[styles.rejectButton, actionLoading && { opacity: 0.5 }]}
+            onPress={() => openRejectModal(item)}
+            disabled={actionLoading}
+          >
+            <Ionicons name="close-circle" size={20} color="#fff" />
+            <Text style={styles.rejectButtonText}>Rejeter</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.infoBox}>
+          <Ionicons name="information-circle" size={20} color={Colors.primaryDark} />
+          <Text style={[styles.infoText, { color: theme.text }]}>
+            Un administrateur doit valider cette transaction
+          </Text>
+        </View>
+      )}
     </View>
   );
 
@@ -409,6 +443,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F4FD',
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  infoText: {
+    marginLeft: 10,
+    fontSize: 14,
+    flex: 1,
   },
   modalOverlay: {
     flex: 1,

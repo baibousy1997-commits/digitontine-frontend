@@ -1,5 +1,5 @@
 // src/screens/Transaction/MyTransactionsScreen.js - VERSION CORRIGEE
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import transactionService from '../../services/transaction/transactionService';
 import Colors from '../../constants/colors';
+import { useFocusEffect } from '@react-navigation/native';
 
 const MyTransactionsScreen = ({ navigation }) => {
   const { theme } = useTheme();
@@ -28,6 +29,12 @@ const MyTransactionsScreen = ({ navigation }) => {
   useEffect(() => {
     loadTransactions();
   }, [filter]);
+  useFocusEffect(
+  useCallback(() => {
+    console.log('MyTransactions: Rechargement auto...');
+    loadTransactions(1, false);
+  }, [filter])
+);
 
   const loadTransactions = async (pageNum = 1, append = false) => {
     try {

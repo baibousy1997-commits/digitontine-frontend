@@ -19,6 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import dashboardService from '../../services/dashboard/dashboardService';
 import tontineService from '../../services/tontine/tontineService';
 import tirageService from '../../services/tirage/tirageService';
+import TirageWheelAnimation from '../../components/TirageWheelAnimation';
 import Colors from '../../constants/colors';
 
 const DashboardAdminScreen = ({ navigation }) => {
@@ -30,6 +31,9 @@ const DashboardAdminScreen = ({ navigation }) => {
   const [showTontineModal, setShowTontineModal] = useState(false);
   const [tirageType, setTirageType] = useState(null);
   const [processingTirage, setProcessingTirage] = useState(false);
+  const [showWheelAnimation, setShowWheelAnimation] = useState(false);
+  const [tirageParticipants, setTirageParticipants] = useState([]);
+  const [selectedTontineForTirage, setSelectedTontineForTirage] = useState(null);
 
   useEffect(() => {
     loadDashboard();
@@ -66,14 +70,18 @@ const DashboardAdminScreen = ({ navigation }) => {
   };
 
   const handleTirageNormal = () => {
+    console.log('Tirage Normal - Tontines disponibles:', tontines.length);
+    console.log('Tontines actives:', tontines.filter(t => t.statut === 'Active').length);
     setTirageType('normal');
     setShowTontineModal(true);
   };
 
   const handleTirageTest = () => {
+    console.log('Tirage Test - Tontines disponibles:', tontines.length);
+    console.log('Tontines actives:', tontines.filter(t => t.statut === 'Active').length);
     Alert.alert(
       'MODE TEST',
-      'Ce tirage sera effectue SANS verification des cotisations ni des opt-in. Continuer ?',
+      'Ce tirage sera effectué sans vérification si le moment opportun du tirage devait être fait. Continuer ?',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -89,15 +97,32 @@ const DashboardAdminScreen = ({ navigation }) => {
 
   const effectuerTirage = async (tontineId) => {
     try {
-      setProcessingTirage(true);
       setShowTontineModal(false);
+      setProcessingTirage(true);
 
       const tontine = tontines.find(t => (t.id || t._id) === tontineId);
       if (!tontine) {
         Alert.alert('Erreur', 'Tontine introuvable');
+        setProcessingTirage(false);
         return;
       }
 
+      // Récupérer les détails de la tontine pour obtenir les membres
+      const tontineDetails = await tontineService.getTontineDetails(tontineId);
+      let participants = [];
+      
+      if (tontineDetails.success && tontineDetails.data?.data?.tontine?.membres) {
+        participants = tontineDetails.data.data.tontine.membres
+          .filter(m => m.userId && typeof m.userId === 'object')
+          .map(m => ({
+            id: m.userId._id || m.userId.id,
+            prenom: m.userId.prenom || '',
+            nom: m.userId.nom || '',
+            email: m.userId.email || '',
+          }));
+      }
+
+      // Effectuer le tirage d'abord (en arrière-plan)
       let result;
       if (tirageType === 'test') {
         result = await tirageService.effectuerTirageAutomatiqueTest(tontineId);
@@ -106,17 +131,23 @@ const DashboardAdminScreen = ({ navigation }) => {
       }
 
       if (result.success) {
-        const beneficiaire = result.data?.data?.tirage?.beneficiaire || result.data?.tirage?.beneficiaire;
-        const montant = result.data?.data?.tirage?.montant || result.data?.tirage?.montant;
-
-        Alert.alert(
-          'Tirage Effectue',
-          `Gagnant : ${beneficiaire?.nom || 'N/A'}\n` +
-          `Montant : ${montant?.toLocaleString() || 0} FCFA\n` +
-          `Tontine : ${tontine.nom}`,
-          [{ text: 'OK', onPress: () => loadDashboard() }]
-        );
+        // Extraire le résultat du tirage de différentes structures possibles
+        const tirageData = result.data?.data?.tirage || result.data?.tirage || result.data?.data;
+        
+        console.log('📊 Résultat tirage reçu:', JSON.stringify(tirageData, null, 2));
+        
+        // Sauvegarder le résultat pour après l'animation
+        setSelectedTontineForTirage({ 
+          tontineId, 
+          tontine,
+          result: tirageData
+        });
+        setTirageParticipants(participants);
+        
+        // Afficher l'animation juste avant d'afficher le résultat
+        setShowWheelAnimation(true);
       } else {
+        setProcessingTirage(false);
         Alert.alert(
           'Erreur',
           result.error?.message || 'Impossible d\'effectuer le tirage'
@@ -124,15 +155,91 @@ const DashboardAdminScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.error('Erreur tirage:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue lors du tirage');
-    } finally {
       setProcessingTirage(false);
+      Alert.alert('Erreur', 'Une erreur est survenue lors du tirage');
+    }
+  };
+
+  const handleAnimationComplete = async () => {
+    // Une fois l'animation terminée, afficher le résultat
+    if (!selectedTontineForTirage) return;
+
+    try {
+      setShowWheelAnimation(false);
+      setProcessingTirage(false);
+
+      const { tontine, result: tirageResult } = selectedTontineForTirage;
+
+      console.log('🎯 Affichage résultat - tirageResult:', JSON.stringify(tirageResult, null, 2));
+
+      if (tirageResult) {
+        // Extraire le bénéficiaire de différentes structures possibles
+        let beneficiaire = null;
+        let beneficiaireNom = 'N/A';
+        let montant = 0;
+
+        // Structure 1: beneficiaire est un objet avec nom/email (structure API)
+        if (tirageResult.beneficiaire) {
+          beneficiaire = tirageResult.beneficiaire;
+          if (typeof beneficiaire === 'object') {
+            // L'API retourne { id, nom, email } pour beneficiaire
+            beneficiaireNom = beneficiaire.nom || 
+                             beneficiaire.nomComplet || 
+                             `${beneficiaire.prenom || ''} ${beneficiaire.nom || ''}`.trim() ||
+                             beneficiaire.email || 
+                             'N/A';
+          } else {
+            beneficiaireNom = beneficiaire;
+          }
+        }
+        // Structure 2: beneficiaireId est peuplé (structure directe du modèle)
+        else if (tirageResult.beneficiaireId) {
+          if (typeof tirageResult.beneficiaireId === 'object') {
+            beneficiaire = tirageResult.beneficiaireId;
+            beneficiaireNom = beneficiaire.nomComplet || 
+                             `${beneficiaire.prenom || ''} ${beneficiaire.nom || ''}`.trim() || 
+                             beneficiaire.email || 
+                             'N/A';
+          }
+        }
+
+        // Extraire le montant
+        montant = tirageResult.montant || tirageResult.montantDistribue || 0;
+
+        console.log('✅ Bénéficiaire extrait:', beneficiaireNom, 'Montant:', montant);
+
+        Alert.alert(
+          '🎉 Tirage Effectué !',
+          `Gagnant : ${beneficiaireNom}\n\n` +
+          `Montant : ${montant?.toLocaleString() || 0} FCFA\n\n` +
+          `Tontine : ${tontine.nom}`,
+          [{ text: 'OK', onPress: () => {
+            loadDashboard();
+            setSelectedTontineForTirage(null);
+            setTirageParticipants([]);
+          }}]
+        );
+      } else {
+        console.error('❌ Aucun résultat de tirage disponible');
+        Alert.alert('Erreur', 'Aucun résultat de tirage disponible');
+        setSelectedTontineForTirage(null);
+        setTirageParticipants([]);
+      }
+    } catch (error) {
+      console.error('Erreur affichage résultat:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue lors de l\'affichage du résultat');
+      setSelectedTontineForTirage(null);
+      setTirageParticipants([]);
     }
   };
 
   const renderTontineItem = ({ item }) => {
     const tontineId = item.id || item._id;
-    const isActive = item.statut === 'Active';
+    // Normaliser le statut pour gérer les variations de casse
+    const statutNormalise = item.statut?.toString().trim();
+    const isActive = statutNormalise === 'Active' || statutNormalise === 'active';
+
+    console.log('Rendering tontine:', item.nom, 'Statut:', item.statut, 'isActive:', isActive);
 
     return (
       <TouchableOpacity
@@ -157,7 +264,7 @@ const DashboardAdminScreen = ({ navigation }) => {
             { backgroundColor: isActive ? Colors.accentGreen : Colors.placeholder },
           ]}
         >
-          <Text style={styles.modalStatutText}>{item.statut}</Text>
+          <Text style={styles.modalStatutText}>{item.statut || 'N/A'}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -270,27 +377,7 @@ const DashboardAdminScreen = ({ navigation }) => {
           </View>
         </View>
 
-        <View style={[styles.infoCard, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.infoTitle, { color: theme.text }]}>Repartition par role</Text>
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Administrateurs</Text>
-            <Text style={[styles.infoValue, { color: theme.text }]}>
-              {repartition.Administrateur || 0}
-            </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Tresoriers</Text>
-            <Text style={[styles.infoValue, { color: theme.text }]}>
-              {repartition.Tresorier || 0}
-            </Text>
-          </View>
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>Membres</Text>
-            <Text style={[styles.infoValue, { color: theme.text }]}>
-              {repartition.Membre || 0}
-            </Text>
-          </View>
-        </View>
+      
 
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Tontines</Text>
         <View style={styles.kpiRow}>
@@ -484,6 +571,11 @@ const DashboardAdminScreen = ({ navigation }) => {
         transparent={true}
         animationType="slide"
         onRequestClose={() => setShowTontineModal(false)}
+        onShow={() => {
+          // Recharger les tontines quand le modal s'ouvre
+          console.log('Modal ouvert - Rechargement des tontines...');
+          loadDashboard();
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
@@ -500,7 +592,7 @@ const DashboardAdminScreen = ({ navigation }) => {
               <View style={[styles.warningBox, { backgroundColor: '#fff3cd' }]}>
                 <Ionicons name="warning" size={20} color="#856404" />
                 <Text style={styles.warningText}>
-                  Mode TEST : Aucune verification des cotisations ni opt-in
+                  Mode TEST : Ce tirage sera effectué sans vérification si le moment opportun du tirage devait être fait.
                 </Text>
               </View>
             )}
@@ -517,19 +609,51 @@ const DashboardAdminScreen = ({ navigation }) => {
                 </Text>
               </View>
             ) : (
-              <FlatList
-                data={tontines.filter(t => t.statut === 'Active')}
-                keyExtractor={(item) => item.id || item._id}
-                renderItem={renderTontineItem}
-                ListEmptyComponent={
-                  <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-                    Aucune tontine active disponible
-                  </Text>
-                }
-              />
+              <>
+                {console.log('Modal - Total tontines:', tontines.length)}
+                {console.log('Modal - Tontines actives:', tontines.filter(t => t.statut === 'Active').length)}
+                {console.log('Modal - Toutes les tontines:', tontines.map(t => ({ nom: t.nom, statut: t.statut })))}
+                <FlatList
+                  data={tontines.filter(t => {
+                    const statut = t.statut?.toString().trim();
+                    return statut === 'Active' || statut === 'active';
+                  })}
+                  keyExtractor={(item) => (item.id || item._id || Math.random()).toString()}
+                  renderItem={renderTontineItem}
+                  ListEmptyComponent={
+                    <View style={{ padding: 20, alignItems: 'center' }}>
+                      <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                        Aucune tontine active disponible
+                      </Text>
+                      <Text style={[styles.emptyText, { color: theme.textSecondary, marginTop: 10, fontSize: 12 }]}>
+                        Total tontines: {tontines.length}
+                      </Text>
+                      {tontines.length > 0 && (
+                        <Text style={[styles.emptyText, { color: theme.textSecondary, marginTop: 5, fontSize: 11 }]}>
+                          Statuts: {tontines.map(t => t.statut).join(', ')}
+                        </Text>
+                      )}
+                    </View>
+                  }
+                />
+              </>
             )}
           </View>
         </View>
+      </Modal>
+
+      {/* Animation de roue de tirage */}
+      <Modal
+        visible={showWheelAnimation}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <TirageWheelAnimation
+          visible={showWheelAnimation}
+          participants={tirageParticipants}
+          onAnimationComplete={handleAnimationComplete}
+        />
       </Modal>
     </SafeAreaView>
   );

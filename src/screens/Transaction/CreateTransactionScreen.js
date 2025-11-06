@@ -31,11 +31,11 @@ const CreateTransactionScreen = ({ navigation, route }) => {
   const [selectedEcheance, setSelectedEcheance] = useState(null);
   const [montantTotal, setMontantTotal] = useState(0);
   const [montantPenalite, setMontantPenalite] = useState(0);
-  const [moyenPaiement, setMoyenPaiement] = useState('Wave');
+  const [moyenPaiement, setMoyenPaiement] = useState('Cash');
   const [showTontinePicker, setShowTontinePicker] = useState(false);
-  const [showEcheancePicker, setShowEcheancePicker] = useState(false);
+  
 
-  const moyensPaiement = ['Wave',  'Payement'];
+  const moyensPaiement = ['Wave', 'Orange Money', 'Cash'];
 
   useEffect(() => {
     loadTontines();
@@ -210,76 +210,94 @@ const CreateTransactionScreen = ({ navigation, route }) => {
     setMontantTotal(montantBase + penalite);
   };
 
-  const handleSubmit = async () => {
-    if (!selectedTontine) {
-      Alert.alert('Erreur', 'Veuillez selectionner une tontine');
-      return;
-    }
+const handleSubmit = async () => {
+  if (!selectedTontine) {
+    Alert.alert('Erreur', 'Veuillez selectionner une tontine');
+    return;
+  }
+  
+  if (!selectedEcheance) {
+    Alert.alert('Erreur', 'Veuillez selectionner une echeance');
+    return;
+  }
+  
+  if (!moyenPaiement) {
+    Alert.alert('Erreur', 'Veuillez selectionner un moyen de paiement');
+    return;
+  }
+  
+  setSubmitting(true);
+  
+  try {
+    const tontineIdToSend = selectedTontine._id || selectedTontine.id;
+    const echeanceEnCours = selectedEcheance.numeroEcheance; // Sauvegarder le numéro
     
-    if (!selectedEcheance) {
-      Alert.alert('Erreur', 'Veuillez selectionner une echeance');
-      return;
-    }
+    const payload = {
+      tontineId: tontineIdToSend,
+      montant: montantTotal,
+      moyenPaiement: moyenPaiement,
+      echeanceNumero: echeanceEnCours,
+    };
     
-    if (!moyenPaiement) {
-      Alert.alert('Erreur', 'Veuillez selectionner un moyen de paiement');
-      return;
-    }
+    console.log('Payload transaction:', payload);
     
-    setSubmitting(true);
+    const result = await transactionService.createTransaction(payload);
     
-    try {
-      const tontineIdToSend = selectedTontine._id || selectedTontine.id;
+    if (result.success) {
+      const paymentData = result.data?.data?.payment;
       
-      const payload = {
-        tontineId: tontineIdToSend,
-        montant: montantTotal,
-        moyenPaiement: moyenPaiement,
-        echeanceNumero: selectedEcheance.numeroEcheance,
-      };
+      //  RECHARGER LES DÉTAILS DE LA TONTINE
+      console.log('Rechargement des échéances après paiement...');
+      await loadTontineDetails(tontineIdToSend);
       
-      console.log('Payload transaction:', payload);
+      //  VÉRIFIER S'IL RESTE DES ÉCHÉANCES NON PAYÉES
+      const echeancesRestantesApres = echeances.filter(
+        e => e.statut === 'en_attente' || e.statut === 'en_cours'
+      );
       
-      const result = await transactionService.createTransaction(payload);
+      console.log(`Échéances restantes: ${echeancesRestantesApres.length}`);
       
-      if (result.success) {
-        const paymentData = result.data?.data?.payment;
-        
-        if (paymentData && paymentData.paymentUrl) {
-          Alert.alert(
-            'Redirection paiement',
-            'Vous allez etre redirige vers la page de paiement',
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  navigation.navigate('MyTransactions');
-                }
+      const messageSuccess = echeancesRestantesApres.length > 0
+        ? `Transaction créée avec succès !\n\nIl vous reste ${echeancesRestantesApres.length} échéance(s) à payer.`
+        : 'Transaction créée avec succès !\n\nToutes vos échéances sont payées. Félicitations !';
+      
+      if (paymentData && paymentData.paymentUrl) {
+        Alert.alert(
+          'Redirection paiement',
+          'Vous allez être redirigé vers la page de paiement',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.navigate('MyTransactions');
               }
-            ]
-          );
-        } else {
-          Alert.alert(
-            'Succes',
-            'Transaction creee avec succes. En attente de validation.',
-            [
-              {
-                text: 'OK',
-                onPress: () => navigation.navigate('MyTransactions')
-              }
-            ]
-          );
-        }
+            }
+          ]
+        );
       } else {
-        Alert.alert('Erreur', result.error?.message || 'Creation echouee');
+        Alert.alert(
+          'Succès',
+          messageSuccess,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.navigate('MyTransactions');
+              }
+            }
+          ]
+        );
       }
-    } catch (error) {
-      console.error('Erreur creation transaction:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
-    } finally {
-      setSubmitting(false);
+    } else {
+      Alert.alert('Erreur', result.error?.message || 'Creation echouee');
     }
-  };
+  } catch (error) {
+    console.error('Erreur creation transaction:', error);
+    Alert.alert('Erreur', 'Une erreur est survenue');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   if (loading) {
     return (
@@ -340,47 +358,37 @@ const CreateTransactionScreen = ({ navigation, route }) => {
           )}
         </View>
 
-        {selectedTontine && echeances.length > 0 && (
-          <View style={[styles.card, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.label, { color: theme.text }]}>
-              Echeance a payer
-            </Text>
-            <TouchableOpacity
-              style={[styles.picker, { backgroundColor: theme.inputBackground }]}
-              onPress={() => setShowEcheancePicker(!showEcheancePicker)}
-            >
-              <Text style={[styles.pickerText, { color: theme.text }]}>
-                {selectedEcheance 
-                  ? `Echeance ${selectedEcheance.numeroEcheance} - ${new Date(selectedEcheance.dateEcheance).toLocaleDateString('fr-FR')}`
-                  : 'Selectionnez une echeance'
-                }
-              </Text>
-              <Ionicons name="chevron-down" size={20} color={theme.text} />
-            </TouchableOpacity>
-            
-            {showEcheancePicker && (
-              <View style={[styles.dropdownList, { backgroundColor: theme.surface }]}>
-                <ScrollView style={{ maxHeight: 200 }}>
-                  {echeances.map((echeance, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setSelectedEcheance(echeance);
-                        setShowEcheancePicker(false);
-                      }}
-                    >
-                      <Text style={[styles.dropdownItemText, { color: theme.text }]}>
-                        Echeance {echeance.numeroEcheance} - {new Date(echeance.dateEcheance).toLocaleDateString('fr-FR')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          </View>
-        )}
-
+    {selectedTontine && echeances.length > 0 && (
+  <View style={[styles.card, { backgroundColor: theme.surface }]}>
+    <Text style={[styles.label, { color: theme.text }]}>
+      Échéance à payer
+    </Text>
+    
+    {/* LECTURE SEULE - NON MODIFIABLE */}
+    <View style={[
+      styles.picker, 
+      { 
+        backgroundColor: theme.inputBackground,
+        opacity: 0.7,
+        borderWidth: 1,
+        borderColor: theme.border
+      }
+    ]}>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.pickerText, { color: theme.text, fontWeight: '600' }]}>
+          {selectedEcheance 
+            ? `Échéance ${selectedEcheance.numeroEcheance} - ${new Date(selectedEcheance.dateEcheance).toLocaleDateString('fr-FR')}`
+            : 'Aucune échéance disponible'
+          }
+        </Text>
+        <Text style={[styles.helperText, { color: theme.textSecondary, marginTop: 4 }]}>
+          Première échéance non payée (sélection automatique)
+        </Text>
+      </View>
+      <Ionicons name="lock-closed" size={20} color={theme.textSecondary} />
+    </View>
+  </View>
+)}
         {selectedEcheance && (
           <View style={[styles.card, { backgroundColor: theme.surface }]}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
@@ -422,19 +430,21 @@ const CreateTransactionScreen = ({ navigation, route }) => {
           <Text style={[styles.label, { color: theme.text }]}>
             Moyen de paiement
           </Text>
-          {moyensPaiement.map((moyen) => (
-            <TouchableOpacity
-              key={moyen}
-              style={[
-                styles.paymentOption,
-                { borderColor: theme.border },
-                moyenPaiement === moyen && { 
-                  borderColor: Colors.primaryDark,
-                  backgroundColor: Colors.primaryDark + '10'
-                }
-              ]}
-              onPress={() => setMoyenPaiement(moyen)}
-            >
+       {moyensPaiement.map((moyen) => (
+  <TouchableOpacity
+    key={moyen}
+    style={[
+      styles.paymentOption,
+      { borderColor: theme.border },
+      moyenPaiement === moyen && { 
+        borderColor: Colors.primaryDark,
+        backgroundColor: Colors.primaryDark + '10'
+      },
+      moyen !== 'Cash' && { opacity: 0.3 }
+    ]}
+    onPress={() => moyen === 'Cash' && setMoyenPaiement(moyen)}
+    disabled={moyen !== 'Cash'}
+  >
               <View style={styles.paymentOptionLeft}>
                 <MaterialCommunityIcons 
                   name={moyen === 'Cash' ? 'cash' : 'wallet'}
@@ -526,6 +536,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F0F0F0',
   },
   dropdownItemText: { fontSize: 15 },
+  helperText: { 
+    fontSize: 13, 
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15 },
   summaryRow: {
     flexDirection: 'row',

@@ -9,6 +9,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +17,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import PropTypes from 'prop-types';
 import { useAuthContext } from '../../context/AuthContext';
 import Colors from '../../constants/colors';
+
+// Logo de l'application
+const logo = require('../../../assets/images/logo.png');
 
 const LoginScreen = ({ navigation }) => {
   // Etats pour etape 1
@@ -451,11 +455,15 @@ const LoginScreen = ({ navigation }) => {
         {/* Logo et titre */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <Ionicons name="wallet-outline" size={48} color={Colors.primaryDark} />
+            <Image 
+              source={logo} 
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.appTitle}>DigiTontine</Text>
           <Text style={styles.appSubtitle}>
-            Votre tontine, simplifiee et securisee.
+            Épargne collective, sécurité numérique.
           </Text>
         </View>
 
@@ -479,7 +487,7 @@ const LoginScreen = ({ navigation }) => {
                     styles.input,
                     errors.identifier && touched.identifier && styles.inputError
                   ]}
-                  placeholder="exemple@email.com ou +221771234567"
+                  placeholder="Entrez votre identifiant"
                   placeholderTextColor={Colors.placeholder}
                   value={identifier}
                   onChangeText={handleIdentifierChange}
@@ -702,10 +710,8 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.accentYellow || '#FFD700',
+    width: 120,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
@@ -714,6 +720,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   appTitle: {
     fontSize: 32,

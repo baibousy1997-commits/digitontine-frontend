@@ -19,6 +19,7 @@ import { useTheme } from '../../context/ThemeContext';
 import userService from '../../services/user/userService';
 import Colors from '../../constants/colors';
 import styles from '../../styles/CreateUsersScreenStyles';
+import { validateAndCompressImage } from '../../utils/imageUtils';
 
 // Liste des indicatifs pays
 const COUNTRY_CODES = [
@@ -142,12 +143,15 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
   };
 
   const validateAdresse = (value) => {
-    // Adresse optionnelle
+    // Adresse obligatoire
     if (!value || value.trim() === '') {
-      return null; // Pas d'erreur si vide
+      return 'L\'adresse est obligatoire';
     }
     if (value.trim().length < 2) {
       return 'L\'adresse doit contenir au moins 2 caractères';
+    }
+    if (value.trim().length > 200) {
+      return 'L\'adresse ne doit pas dépasser 200 caractères';
     }
     return null;
   };
@@ -157,9 +161,32 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
     if (!value || value.trim() === '') {
       return 'Le numéro CNI est obligatoire';
     }
-    if (value.trim().length < 5) {
-      return 'Le numéro CNI doit contenir au moins 5 caractères';
+    
+    // Validation selon le pays
+    if (countryCode === '+221') {
+      // Format sénégalais : NIN (Numéro d'Identification Nationale) - 13 chiffres uniquement
+      // Structure : 1 chiffre (sexe) + 3 chiffres (centre) + 4 chiffres (année) + 5 chiffres (séquence)
+      const trimmedValue = value.trim().replace(/[^0-9]/g, ''); // Ne garder que les chiffres
+      const senegalPattern = /^[0-9]{13}$/;
+      if (!senegalPattern.test(trimmedValue)) {
+        return 'Format invalide. Format attendu : 13 chiffres (ex: 1123198000001)';
+      }
+    } else {
+      const trimmedValue = value.trim().toUpperCase();
+      // Pour les autres pays : format générique alphanumérique (5-20 caractères)
+      if (trimmedValue.length < 5) {
+        return 'Le numéro doit contenir au moins 5 caractères';
+      }
+      if (trimmedValue.length > 20) {
+        return 'Le numéro ne peut pas dépasser 20 caractères';
+      }
+      // Alphanumérique uniquement (lettres majuscules et chiffres)
+      const genericPattern = /^[A-Z0-9]+$/;
+      if (!genericPattern.test(trimmedValue)) {
+        return 'Le numéro ne peut contenir que des lettres majuscules et des chiffres';
+      }
     }
+    
     return null;
   };
 
@@ -237,11 +264,19 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
   };
 
   const handleCniChange = (value) => {
-    // Auto-uppercase pour CNI
-    const upperValue = value.toUpperCase();
-    setCni(upperValue);
+    let processedValue = value;
+    
+    // Pour le Sénégal, ne garder que les chiffres et limiter à 13
+    if (countryCode === '+221') {
+      processedValue = value.replace(/[^0-9]/g, '').slice(0, 13);
+    } else {
+      // Pour les autres pays, uppercase et garder alphanumérique
+      processedValue = value.toUpperCase();
+    }
+    
+    setCni(processedValue);
     if (touched.cni) {
-      setErrors({ ...errors, cni: validateCni(upperValue) });
+      setErrors({ ...errors, cni: validateCni(processedValue) });
     }
   };
 
@@ -297,12 +332,20 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8, // Qualité initiale plus élevée, sera compressée si nécessaire
+      mediaTypes: ['images'],
+      allowsMultipleSelection: false,
     });
 
-    if (!result.canceled) {
-      setPhoto(result.assets[0]);
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const imageAsset = result.assets[0];
+      
+      // Vérifier et compresser l'image si nécessaire
+      const validatedImage = await validateAndCompressImage(imageAsset, 'identity');
+      
+      if (validatedImage) {
+        setPhoto(validatedImage);
+      }
     }
   };
 
@@ -357,6 +400,10 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
     setCountryCode(code);
     setTelephone(''); // Réinitialiser le numéro lors du changement de pays
     setShowCountryModal(false);
+    // Revalider la CNI si elle est déjà saisie
+    if (cni && touched.cni) {
+      setErrors({ ...errors, cni: validateCni(cni) });
+    }
   };
 
   /**
@@ -425,7 +472,7 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
         nom: nom.trim(),
         email: email.toLowerCase().trim(),
         numeroTelephone: fullPhone,
-        adresse: adresse.trim() || '', // Adresse optionnelle - vide si non renseignée
+        adresse: adresse.trim(), // Adresse obligatoire
         carteIdentite: cni.trim(), // CNI obligatoire
         dateNaissance: formatDateForSubmit(dateNaissance),
       };
@@ -450,14 +497,51 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
           ]
         );
       } else {
-        Alert.alert(
-          'Erreur',
-          result.error?.message || 'Impossible de créer l\'utilisateur.'
-        );
+        // Message d'erreur plus détaillé
+        const errorMessage = result.error?.message || 
+                            result.error?.details || 
+                            result.error?.error?.message ||
+                            result.error?.error ||
+                            'Impossible de créer l\'utilisateur.';
+        console.error('Erreur création utilisateur:', result.error);
+        
+        let errorTitle = 'Erreur';
+        if (result.error?.code === 'TIMEOUT') {
+          errorTitle = 'Erreur de timeout';
+        } else if (result.error?.code === 'NETWORK_ERROR') {
+          errorTitle = 'Erreur de connexion';
+        }
+        
+        Alert.alert(errorTitle, errorMessage, [{ text: 'OK' }]);
       }
     } catch (error) {
       console.error('Erreur création utilisateur:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue. Réessayez.');
+      console.error('Erreur stack:', error.stack);
+      
+      // Message d'erreur plus détaillé
+      let errorMessage = 'Une erreur est survenue. Veuillez réessayer.';
+      let errorTitle = 'Erreur';
+      
+      if (error.message) {
+        if (error.message.includes('Network request failed') || 
+            error.message.includes('timeout') ||
+            error.message.includes('TIMEOUT')) {
+          errorTitle = 'Erreur de timeout';
+          errorMessage = 'La requête a pris trop de temps.\n\nSi vous avez ajouté une image, elle est peut-être trop lourde. Réessayez avec une image plus petite.';
+        } else if (error.message.includes('Network') || 
+                   error.message.includes('Failed to fetch') ||
+                   error.message.includes('NETWORK_ERROR')) {
+          errorTitle = 'Erreur de connexion';
+          errorMessage = 'Impossible de se connecter au serveur.\n\nVérifiez votre connexion internet.';
+        } else if (error.message.includes('JSON') || error.message.includes('parsing')) {
+          errorTitle = 'Erreur serveur';
+          errorMessage = 'Le serveur a renvoyé une réponse invalide. Veuillez réessayer.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert(errorTitle, errorMessage, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
@@ -763,9 +847,9 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
           />
         )}
 
-        {/* Adresse (optionnelle) */}
+        {/* Adresse (obligatoire) */}
         <Text style={[styles.label, { color: theme.text }]}>
-          Adresse <Text style={{ color: theme.placeholder, fontSize: 13 }}></Text>
+          Adresse <Text style={{ color: Colors.danger, fontSize: 13 }}>*</Text>
         </Text>
         <View style={{ marginBottom: 15 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
@@ -834,9 +918,10 @@ const [dateNaissance, setDateNaissance] = useState(getDefaultBirthDate());
                   flex: 1,
                 },
               ]}
-              placeholder="Numéro de la carte d'identité"
+              placeholder={countryCode === '+221' ? '1123198000001' : 'Numéro de la carte d\'identité'}
               placeholderTextColor={theme.placeholder}
-              autoCapitalize="characters"
+              keyboardType={countryCode === '+221' ? 'numeric' : 'default'}
+              autoCapitalize={countryCode === '+221' ? 'none' : 'characters'}
               value={cni}
               onChangeText={handleCniChange}
               onBlur={() => handleBlur('cni')}

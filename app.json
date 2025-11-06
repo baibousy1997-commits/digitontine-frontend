@@ -1,22 +1,28 @@
 {
   "expo": {
-    "name": "DigiTontine-Frontend",
+    "name": "DigiTontine",
     "slug": "DigiTontine-Frontend",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/images/logo.png",
     "splash": {
+      "image": "./assets/images/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
+    "scheme": "com.digitontine.app",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.digitontine.app"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/logo.png",
+        "backgroundColor": "#000000"
       },
+      "package": "com.digitontine.app",
       "edgeToEdgeEnabled": true
     },
     "plugins": [

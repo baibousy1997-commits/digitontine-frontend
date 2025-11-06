@@ -46,7 +46,7 @@ const loadDashboard = async () => {
       setDashboardData(data);
       
       //  CORRECTION : Utiliser les tontines du dashboard (comme Admin/Trésorier)
-      const tontinesList = data?.tontines || [];  // ✅ CHANGÉ : Chemin simplifié
+      const tontinesList = data?.tontines || [];  // CHANGÉ : Chemin simplifié
       console.log(' Tontines du membre:', tontinesList.length);
       console.log('Détails tontines:', JSON.stringify(tontinesList, null, 2));
       setMesTontines(tontinesList);
@@ -229,7 +229,7 @@ const loadDashboard = async () => {
                   style={[styles.tontineCard, { backgroundColor: theme.surface }]}
                   onPress={() => {
                     const tontineId = getTontineId(item);
-                    console.log('🔍 Navigation vers tontine:', tontineId);
+                    console.log('Navigation vers tontine:', tontineId);
                     navigation.navigate('TontineDetails', { tontineId });
                   }}
                 >

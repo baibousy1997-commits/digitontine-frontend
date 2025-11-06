@@ -32,20 +32,92 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [confirmationToken, setConfirmationToken] = useState('');
   
   const [loading, setLoading] = useState(false);
+  
+  // États pour validation visuelle
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+
+  /**
+   * Fonctions de validation
+   */
+  const validateEmail = (value) => {
+    if (!value || value.trim() === '') {
+      return 'L\'email est obligatoire';
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
+      return 'Format d\'email invalide';
+    }
+    return null;
+  };
+
+  const validateCode = (value) => {
+    if (!value || value.trim() === '') {
+      return 'Le code est requis';
+    }
+    if (value.length !== 6) {
+      return 'Le code doit contenir 6 chiffres';
+    }
+    if (!/^\d+$/.test(value)) {
+      return 'Le code ne doit contenir que des chiffres';
+    }
+    return null;
+  };
+
+  const validateNewPassword = (value) => {
+    if (!value || value.trim() === '') {
+      return 'Le mot de passe est obligatoire';
+    }
+    if (value.length < 8) {
+      return 'Le mot de passe doit contenir au moins 8 caractères';
+    }
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(value)) {
+      return 'Requis : majuscule, minuscule, chiffre, caractère spécial (@$!%*?&)';
+    }
+    return null;
+  };
+
+  const validateConfirmPassword = (value) => {
+    if (!value || value.trim() === '') {
+      return 'La confirmation est obligatoire';
+    }
+    if (value !== newPassword) {
+      return 'Les mots de passe ne correspondent pas';
+    }
+    return null;
+  };
+
+  const handleBlur = (field) => {
+    setTouched({ ...touched, [field]: true });
+    
+    switch (field) {
+      case 'email':
+        setErrors({ ...errors, email: validateEmail(email) });
+        break;
+      case 'code':
+        setErrors({ ...errors, code: validateCode(code) });
+        break;
+      case 'newPassword':
+        setErrors({ ...errors, newPassword: validateNewPassword(newPassword) });
+        if (touched.confirmPassword && confirmPassword) {
+          setErrors({ ...errors, confirmPassword: validateConfirmPassword(confirmPassword) });
+        }
+        break;
+      case 'confirmPassword':
+        setErrors({ ...errors, confirmPassword: validateConfirmPassword(confirmPassword) });
+        break;
+    }
+  };
 
   /**
    * ÉTAPE 1 : Demander le code de réinitialisation
    */
   const handleRequestCode = async () => {
-    if (!email.trim()) {
-      Alert.alert('Erreur', 'Veuillez saisir votre email.');
-      return;
-    }
-
-    // Validation format email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Erreur', 'Format d\'email invalide.');
+    setTouched({ ...touched, email: true });
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setErrors({ ...errors, email: emailError });
       return;
     }
 
@@ -66,14 +138,41 @@ export default function ForgotPasswordScreen({ navigation }) {
           ]
         );
       } else {
-        Alert.alert(
-          'Erreur',
-          result.error?.message || 'Aucun compte associé à cet email.'
-        );
+        const errorMessage = result.error?.message || 
+                            result.error?.error?.message ||
+                            result.error?.error ||
+                            'Aucun compte associé à cet email.';
+        console.error('Erreur forgot password:', result.error);
+        
+        let errorTitle = 'Erreur';
+        if (result.error?.code === 'USER_NOT_FOUND') {
+          errorTitle = 'Email introuvable';
+        } else if (result.error?.code === 'NETWORK_ERROR') {
+          errorTitle = 'Erreur de connexion';
+        }
+        
+        Alert.alert(errorTitle, errorMessage, [{ text: 'OK' }]);
       }
     } catch (error) {
       console.error('Erreur forgot password:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue. Réessayez.');
+      console.error('Erreur stack:', error.stack);
+      
+      let errorMessage = 'Une erreur est survenue. Veuillez réessayer.';
+      let errorTitle = 'Erreur';
+      
+      if (error.message) {
+        if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
+          errorTitle = 'Erreur de connexion';
+          errorMessage = 'Impossible de se connecter au serveur.\n\nVérifiez votre connexion internet.';
+        } else if (error.message.includes('JSON') || error.message.includes('parsing')) {
+          errorTitle = 'Erreur serveur';
+          errorMessage = 'Le serveur a renvoyé une réponse invalide. Veuillez réessayer.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert(errorTitle, errorMessage, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
@@ -83,29 +182,26 @@ export default function ForgotPasswordScreen({ navigation }) {
    * ÉTAPE 2 : Réinitialiser le mot de passe
    */
   const handleResetPassword = async () => {
-    // Validations
-    if (!code.trim() || code.length !== 6) {
-      Alert.alert('Erreur', 'Le code doit contenir 6 chiffres.');
-      return;
-    }
+    // Marquer tous les champs comme touchés
+    setTouched({
+      code: true,
+      newPassword: true,
+      confirmPassword: true,
+    });
 
-    if (!newPassword.trim() || newPassword.length < 8) {
-      Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 8 caractères.');
-      return;
-    }
+    // Valider tous les champs
+    const allErrors = {
+      code: validateCode(code),
+      newPassword: validateNewPassword(newPassword),
+      confirmPassword: validateConfirmPassword(confirmPassword),
+    };
 
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
-      return;
-    }
+    setErrors(allErrors);
 
-    // Validation force du mot de passe
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(newPassword)) {
-      Alert.alert(
-        'Mot de passe faible',
-        'Le mot de passe doit contenir :\n• Au moins 8 caractères\n• 1 majuscule\n• 1 minuscule\n• 1 chiffre\n• 1 caractère spécial (@$!%*?&)'
-      );
+    // Vérifier s'il y a des erreurs
+    const hasErrors = Object.values(allErrors).some(error => error !== null);
+    if (hasErrors) {
+      Alert.alert('Erreur', 'Veuillez corriger les erreurs dans le formulaire.');
       return;
     }
 
@@ -141,14 +237,43 @@ export default function ForgotPasswordScreen({ navigation }) {
           );
         }
       } else {
-        Alert.alert(
-          'Erreur',
-          result.error?.message || 'Code invalide ou expiré.'
-        );
+        const errorMessage = result.error?.message || 
+                            result.error?.error?.message ||
+                            result.error?.error ||
+                            'Code invalide ou expiré.';
+        console.error('Erreur reset password:', result.error);
+        
+        let errorTitle = 'Erreur';
+        if (result.error?.code === 'INVALID_CODE') {
+          errorTitle = 'Code invalide';
+        } else if (result.error?.code === 'EXPIRED_CODE') {
+          errorTitle = 'Code expiré';
+        } else if (result.error?.code === 'NETWORK_ERROR') {
+          errorTitle = 'Erreur de connexion';
+        }
+        
+        Alert.alert(errorTitle, errorMessage, [{ text: 'OK' }]);
       }
     } catch (error) {
       console.error('Erreur reset password:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue. Réessayez.');
+      console.error('Erreur stack:', error.stack);
+      
+      let errorMessage = 'Une erreur est survenue. Veuillez réessayer.';
+      let errorTitle = 'Erreur';
+      
+      if (error.message) {
+        if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
+          errorTitle = 'Erreur de connexion';
+          errorMessage = 'Impossible de se connecter au serveur.\n\nVérifiez votre connexion internet.';
+        } else if (error.message.includes('JSON') || error.message.includes('parsing')) {
+          errorTitle = 'Erreur serveur';
+          errorMessage = 'Le serveur a renvoyé une réponse invalide. Veuillez réessayer.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert(errorTitle, errorMessage, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
@@ -221,13 +346,30 @@ export default function ForgotPasswordScreen({ navigation }) {
             <Text style={styles.inputLabel}>Email</Text>
             <TextInput
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(value) => {
+                setEmail(value);
+                if (touched.email) {
+                  setErrors({ ...errors, email: validateEmail(value) });
+                }
+              }}
+              onBlur={() => handleBlur('email')}
               placeholder="exemple@email.com"
               placeholderTextColor={Colors.placeholder}
               keyboardType="email-address"
               autoCapitalize="none"
-              style={styles.input}
+              style={[
+                styles.input,
+                errors.email && touched.email && { borderColor: Colors.danger || '#dc3545', borderWidth: 2 }
+              ]}
             />
+            {errors.email && touched.email && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                <Ionicons name="alert-circle" size={16} color={Colors.danger || '#dc3545'} />
+                <Text style={{ color: Colors.danger || '#dc3545', fontSize: 13, marginLeft: 5 }}>
+                  {errors.email}
+                </Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
@@ -261,19 +403,49 @@ export default function ForgotPasswordScreen({ navigation }) {
             <Text style={styles.inputLabel}>Code de vérification</Text>
             <TextInput
               value={code}
-              onChangeText={setCode}
+              onChangeText={(value) => {
+                setCode(value);
+                if (touched.code) {
+                  setErrors({ ...errors, code: validateCode(value) });
+                }
+              }}
+              onBlur={() => handleBlur('code')}
               placeholder="123456"
               placeholderTextColor={Colors.placeholder}
               keyboardType="number-pad"
               maxLength={6}
-              style={[styles.input, styles.codeInput]}
+              style={[
+                styles.input, 
+                styles.codeInput,
+                errors.code && touched.code && { borderColor: Colors.danger || '#dc3545', borderWidth: 2 }
+              ]}
             />
+            {errors.code && touched.code && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                <Ionicons name="alert-circle" size={16} color={Colors.danger || '#dc3545'} />
+                <Text style={{ color: Colors.danger || '#dc3545', fontSize: 13, marginLeft: 5 }}>
+                  {errors.code}
+                </Text>
+              </View>
+            )}
 
             <Text style={styles.inputLabel}>Nouveau mot de passe</Text>
-            <View style={styles.passwordContainer}>
+            <View style={[
+              styles.passwordContainer,
+              errors.newPassword && touched.newPassword && { borderColor: Colors.danger || '#dc3545', borderWidth: 2 }
+            ]}>
               <TextInput
                 value={newPassword}
-                onChangeText={setNewPassword}
+                onChangeText={(value) => {
+                  setNewPassword(value);
+                  if (touched.newPassword) {
+                    setErrors({ ...errors, newPassword: validateNewPassword(value) });
+                  }
+                  if (touched.confirmPassword && confirmPassword) {
+                    setErrors({ ...errors, confirmPassword: validateConfirmPassword(confirmPassword) });
+                  }
+                }}
+                onBlur={() => handleBlur('newPassword')}
                 placeholder="Minimum 8 caractères"
                 placeholderTextColor={Colors.placeholder}
                 secureTextEntry={!showPassword}
@@ -290,16 +462,41 @@ export default function ForgotPasswordScreen({ navigation }) {
                 />
               </TouchableOpacity>
             </View>
+            {errors.newPassword && touched.newPassword && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                <Ionicons name="alert-circle" size={16} color={Colors.danger || '#dc3545'} />
+                <Text style={{ color: Colors.danger || '#dc3545', fontSize: 13, marginLeft: 5 }}>
+                  {errors.newPassword}
+                </Text>
+              </View>
+            )}
 
             <Text style={styles.inputLabel}>Confirmer le mot de passe</Text>
             <TextInput
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(value) => {
+                setConfirmPassword(value);
+                if (touched.confirmPassword) {
+                  setErrors({ ...errors, confirmPassword: validateConfirmPassword(value) });
+                }
+              }}
+              onBlur={() => handleBlur('confirmPassword')}
               placeholder="Confirmez votre mot de passe"
               placeholderTextColor={Colors.placeholder}
               secureTextEntry={!showPassword}
-              style={styles.input}
+              style={[
+                styles.input,
+                errors.confirmPassword && touched.confirmPassword && { borderColor: Colors.danger || '#dc3545', borderWidth: 2 }
+              ]}
             />
+            {errors.confirmPassword && touched.confirmPassword && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                <Ionicons name="alert-circle" size={16} color={Colors.danger || '#dc3545'} />
+                <Text style={{ color: Colors.danger || '#dc3545', fontSize: 13, marginLeft: 5 }}>
+                  {errors.confirmPassword}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.passwordRequirements}>
               <Text style={styles.requirementTitle}>Le mot de passe doit contenir :</Text>
@@ -439,6 +636,8 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     fontSize: 16,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   codeInput: {
     fontSize: 24,
@@ -452,6 +651,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.inputBackground,
     borderRadius: 10,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   passwordInput: {
     flex: 1,

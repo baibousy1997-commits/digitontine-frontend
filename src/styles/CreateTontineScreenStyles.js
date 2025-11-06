@@ -71,7 +71,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#000',
-    marginBottom: 15,
+    marginBottom: 10,
+  },
+  helpText: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 10,
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
 
   // --- DATES ---

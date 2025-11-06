@@ -4,10 +4,8 @@ import Colors from '../constants/colors';
 const AccountStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   header: {
-    backgroundColor: Colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 15,
     flexDirection: 'row',
@@ -30,7 +28,6 @@ const AccountStyles = StyleSheet.create({
     padding: 5,
   },
   profileSection: {
-    backgroundColor: Colors.primary,
     paddingBottom: 30,
     alignItems: 'center',
     marginTop: -20,
@@ -43,11 +40,10 @@ const AccountStyles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#E0E0E0',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: Colors.textLight,
+    overflow: 'hidden',
   },
   // Nouveau : Style pour avatar avec initiales
   avatarWithInitials: {
@@ -75,14 +71,12 @@ const AccountStyles = StyleSheet.create({
   },
   menuContainer: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
     paddingHorizontal: 20,
     paddingTop: 20,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.textLight,
     paddingVertical: 18,
     paddingHorizontal: 20,
     borderRadius: 12,
@@ -97,7 +91,6 @@ const AccountStyles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,

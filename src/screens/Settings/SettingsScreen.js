@@ -92,10 +92,6 @@ const SettingsScreen = ({ navigation }) => {
           <Ionicons name="arrow-back" size={24} color={theme.text} />
           <Text style={[SettingsStyles.backText, { color: theme.text }]}>Retour</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity style={SettingsStyles.menuButton}>
-          <Ionicons name="menu" size={28} color={theme.text} />
-        </TouchableOpacity>
       </View>
 
       {/* Title */}

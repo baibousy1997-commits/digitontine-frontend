@@ -57,12 +57,68 @@ apiClient.interceptors.request.use(
     if (config.url.includes('/tirages/') || config.url.includes('/tontine/')) {
       config.timeout = 120000; // 120 secondes pour les tirages et tontines
     }
+    
+    // 4. Pour FormData (uploads), augmenter le timeout et retirer Content-Type
+    // Vérifier si c'est FormData (React Native ou Web)
+    // React Native utilise une implémentation spéciale de FormData
+    const isFormData = config.data instanceof FormData || 
+                      (config.data && typeof config.data === 'object' && 
+                       config.data._parts !== undefined) || // React Native FormData
+                      (config.data && typeof config.data.constructor === 'function' && 
+                       config.data.constructor.name === 'FormData');
+    
+    if (isFormData) {
+      // Configuration spéciale pour FormData (uploads)
+      config.timeout = config.timeout || 120000; // 120 secondes par défaut pour FormData
+      config.maxContentLength = Infinity;
+      config.maxBodyLength = Infinity;
+      
+      // Ne pas définir Content-Type, laissez axios/navigateur le faire automatiquement
+      // avec le boundary correct pour multipart/form-data
+      if (config.headers) {
+        delete config.headers['Content-Type'];
+      }
+      
+      // Pour React Native, s'assurer que transformRequest est undefined
+      // Cela permet à axios de gérer correctement le FormData
+      config.transformRequest = undefined;
+      
+      if (__DEV__) {
+        console.log('[API] FormData détecté - timeout:', config.timeout);
+        console.log('[API] FormData type:', config.data.constructor?.name || typeof config.data);
+        console.log('[API] FormData has _parts:', config.data._parts !== undefined);
+      }
+    }
 
     // 4. Logger en développement
     if (__DEV__) {
       console.log(`[API] ${config.method.toUpperCase()} ${config.url}`);
+      console.log('[API] Timeout:', config.timeout);
+      console.log('[API] Headers:', {
+        'Content-Type': config.headers['Content-Type'],
+        'Authorization': config.headers['Authorization'] ? 'présent' : 'absent',
+        'Content-Length': config.headers['Content-Length']
+      });
+      
       if (config.data) {
-        console.log('[API] Data:', config.data);
+        if (isFormData) {
+          console.log('[API] FormData détecté - nombre de parts:', config.data._parts?.length || 'N/A');
+          // Log les premières parts pour debug (sans le fichier complet)
+          if (config.data._parts) {
+            config.data._parts.slice(0, 3).forEach((part, index) => {
+              if (Array.isArray(part) && part.length >= 2) {
+                const [key, value] = part;
+                if (typeof value === 'object' && value.uri) {
+                  console.log(`[API] FormData part ${index}: ${key} = [FILE: ${value.name || 'unnamed'}]`);
+                } else {
+                  console.log(`[API] FormData part ${index}: ${key} = ${String(value).substring(0, 50)}`);
+                }
+              }
+            });
+          }
+        } else {
+          console.log('[API] Data (JSON):', config.data);
+        }
       }
     }
 
@@ -158,6 +214,13 @@ apiClient.interceptors.response.use(
       const errorMessage = error.message || 'Erreur réseau inconnue';
       console.warn('[API] NETWORK ERROR -', errorMessage);
       console.warn('[API] Error code:', error.code);
+      console.warn('[API] Request config:', {
+        method: originalRequest?.method,
+        url: originalRequest?.url,
+        timeout: originalRequest?.timeout,
+        hasData: !!originalRequest?.data,
+        dataType: originalRequest?.data?.constructor?.name || typeof originalRequest?.data
+      });
       
       // Vérifier si c'est un timeout
       const isTimeout = error.code === 'ECONNABORTED' || 

@@ -34,6 +34,10 @@ const ChangePasswordScreen = ({ navigation }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingPassword, setLoadingPassword] = useState(true);
+  
+  // États pour validation visuelle
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   // Recuperer le mot de passe actuel au montage du composant
   useEffect(() => {
@@ -69,6 +73,53 @@ const ChangePasswordScreen = ({ navigation }) => {
   }, []);
 
   /**
+   * Fonctions de validation individuelles
+   */
+  const validateNewPassword = (value) => {
+    if (!value || value.trim() === '') {
+      return 'Le nouveau mot de passe est obligatoire';
+    }
+    if (value.length < 8) {
+      return 'Le mot de passe doit contenir au moins 8 caractères';
+    }
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(value)) {
+      return 'Requis : majuscule, minuscule, chiffre, caractère spécial (@$!%*?&)';
+    }
+    if (currentPassword && value === currentPassword) {
+      return 'Le nouveau mot de passe doit être différent de l\'ancien';
+    }
+    return null;
+  };
+
+  const validateConfirmPassword = (value) => {
+    if (!value || value.trim() === '') {
+      return 'La confirmation est obligatoire';
+    }
+    if (value !== newPassword) {
+      return 'Les mots de passe ne correspondent pas';
+    }
+    return null;
+  };
+
+  const handleBlur = (field) => {
+    setTouched({ ...touched, [field]: true });
+    
+    switch (field) {
+      case 'newPassword':
+        setErrors({ ...errors, newPassword: validateNewPassword(newPassword) });
+        // Valider aussi la confirmation si elle est remplie
+        if (touched.confirmPassword && confirmPassword) {
+          setErrors({ ...errors, confirmPassword: validateConfirmPassword(confirmPassword) });
+        }
+        break;
+      case 'confirmPassword':
+        setErrors({ ...errors, confirmPassword: validateConfirmPassword(confirmPassword) });
+        break;
+    }
+  };
+
+  /**
    * Validation du formulaire
    */
   const validateForm = () => {
@@ -77,27 +128,24 @@ const ChangePasswordScreen = ({ navigation }) => {
       return false;
     }
 
-    if (!newPassword.trim() || newPassword.length < 8) {
-      Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 8 caracteres.');
-      return false;
-    }
+    // Marquer tous les champs comme touchés
+    setTouched({
+      newPassword: true,
+      confirmPassword: true,
+    });
 
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas.');
-      return false;
-    }
+    // Valider tous les champs
+    const allErrors = {
+      newPassword: validateNewPassword(newPassword),
+      confirmPassword: validateConfirmPassword(confirmPassword),
+    };
 
-    if (currentPassword === newPassword) {
-      Alert.alert('Erreur', 'Le nouveau mot de passe doit etre different de l\'ancien.');
-      return false;
-    }
+    setErrors(allErrors);
 
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(newPassword)) {
-      Alert.alert(
-        'Mot de passe faible',
-        'Le mot de passe doit contenir :\n- Au moins 8 caracteres\n- 1 majuscule\n- 1 minuscule\n- 1 chiffre\n- 1 caractere special (@$!%*?&)'
-      );
+    // Vérifier s'il y a des erreurs
+    const hasErrors = Object.values(allErrors).some(error => error !== null);
+    if (hasErrors) {
+      Alert.alert('Erreur', 'Veuillez corriger les erreurs dans le formulaire.');
       return false;
     }
 
@@ -139,14 +187,41 @@ const ChangePasswordScreen = ({ navigation }) => {
           { cancelable: false }
         );
       } else {
-        Alert.alert(
-          'Erreur',
-          result.error?.message || 'Impossible de changer le mot de passe.'
-        );
+        const errorMessage = result.error?.message || 
+                            result.error?.error?.message ||
+                            result.error?.error ||
+                            'Impossible de changer le mot de passe.';
+        console.error('Erreur changement mot de passe:', result.error);
+        
+        let errorTitle = 'Erreur';
+        if (result.error?.code === 'INVALID_PASSWORD') {
+          errorTitle = 'Mot de passe incorrect';
+        } else if (result.error?.code === 'NETWORK_ERROR') {
+          errorTitle = 'Erreur de connexion';
+        }
+        
+        Alert.alert(errorTitle, errorMessage, [{ text: 'OK' }]);
       }
     } catch (error) {
       console.error('Erreur changement mot de passe:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue. Reessayez.');
+      console.error('Erreur stack:', error.stack);
+      
+      let errorMessage = 'Une erreur est survenue. Veuillez réessayer.';
+      let errorTitle = 'Erreur';
+      
+      if (error.message) {
+        if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
+          errorTitle = 'Erreur de connexion';
+          errorMessage = 'Impossible de se connecter au serveur.\n\nVérifiez votre connexion internet.';
+        } else if (error.message.includes('JSON') || error.message.includes('parsing')) {
+          errorTitle = 'Erreur serveur';
+          errorMessage = 'Le serveur a renvoyé une réponse invalide. Veuillez réessayer.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert(errorTitle, errorMessage, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
@@ -178,10 +253,6 @@ const ChangePasswordScreen = ({ navigation }) => {
         >
           <Ionicons name="arrow-back" size={24} color={theme.text} />
           <Text style={[ChangePasswordStyles.backText, { color: theme.text }]}>Retour</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={ChangePasswordStyles.menuButton}>
-          <Ionicons name="menu" size={28} color={theme.text} />
         </TouchableOpacity>
       </View>
 
@@ -219,14 +290,28 @@ const ChangePasswordScreen = ({ navigation }) => {
               <Text style={[ChangePasswordStyles.label, { color: theme.text }]}>
                 Nouveau mot de passe
               </Text>
-              <View style={[ChangePasswordStyles.inputContainer, { backgroundColor: theme.inputBackground }]}>
+              <View style={[
+                ChangePasswordStyles.inputContainer, 
+                { backgroundColor: theme.inputBackground },
+                errors.newPassword && touched.newPassword && { borderColor: Colors.danger, borderWidth: 2 }
+              ]}>
                 <TextInput
                   style={[ChangePasswordStyles.input, { color: theme.text }]}
                   placeholder="Nouveau mot de passe"
                   placeholderTextColor={theme.placeholder}
                   secureTextEntry={!showNewPassword}
                   value={newPassword}
-                  onChangeText={setNewPassword}
+                  onChangeText={(value) => {
+                    setNewPassword(value);
+                    if (touched.newPassword) {
+                      setErrors({ ...errors, newPassword: validateNewPassword(value) });
+                    }
+                    // Valider aussi la confirmation si elle est remplie
+                    if (touched.confirmPassword && confirmPassword) {
+                      setErrors({ ...errors, confirmPassword: validateConfirmPassword(confirmPassword) });
+                    }
+                  }}
+                  onBlur={() => handleBlur('newPassword')}
                   autoFocus={true}
                 />
                 <TouchableOpacity
@@ -240,6 +325,14 @@ const ChangePasswordScreen = ({ navigation }) => {
                   />
                 </TouchableOpacity>
               </View>
+              {errors.newPassword && touched.newPassword && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                  <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+                  <Text style={{ color: Colors.danger, fontSize: 13, marginLeft: 5 }}>
+                    {errors.newPassword}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Champ confirmation mot de passe */}
@@ -247,14 +340,24 @@ const ChangePasswordScreen = ({ navigation }) => {
               <Text style={[ChangePasswordStyles.label, { color: theme.text }]}>
                 Confirmation du nouveau mot de passe
               </Text>
-              <View style={[ChangePasswordStyles.inputContainer, { backgroundColor: theme.inputBackground }]}>
+              <View style={[
+                ChangePasswordStyles.inputContainer, 
+                { backgroundColor: theme.inputBackground },
+                errors.confirmPassword && touched.confirmPassword && { borderColor: Colors.danger, borderWidth: 2 }
+              ]}>
                 <TextInput
                   style={[ChangePasswordStyles.input, { color: theme.text }]}
                   placeholder="Confirmation du nouveau mot de passe"
                   placeholderTextColor={theme.placeholder}
                   secureTextEntry={!showConfirmPassword}
                   value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  onChangeText={(value) => {
+                    setConfirmPassword(value);
+                    if (touched.confirmPassword) {
+                      setErrors({ ...errors, confirmPassword: validateConfirmPassword(value) });
+                    }
+                  }}
+                  onBlur={() => handleBlur('confirmPassword')}
                 />
                 <TouchableOpacity
                   style={ChangePasswordStyles.eyeIcon}
@@ -267,6 +370,14 @@ const ChangePasswordScreen = ({ navigation }) => {
                   />
                 </TouchableOpacity>
               </View>
+              {errors.confirmPassword && touched.confirmPassword && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                  <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+                  <Text style={{ color: Colors.danger, fontSize: 13, marginLeft: 5 }}>
+                    {errors.confirmPassword}
+                  </Text>
+                </View>
+              )}
             </View>
 
            

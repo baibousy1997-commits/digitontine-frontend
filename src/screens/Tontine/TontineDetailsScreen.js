@@ -94,7 +94,7 @@ const loadInvitations = async () => {
   //   (seulement pour les admins)
   try {
     setLoadingInvitations(true);
-    console.log('🔍 [ADMIN] Chargement des invitations pour tontineId:', tontineId);
+    console.log('[ADMIN] Chargement des invitations pour tontineId:', tontineId);
 
     const invitationsResult = await tontineService.getTontineInvitations(tontineId);
 

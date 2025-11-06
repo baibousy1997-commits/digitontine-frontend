@@ -1,5 +1,5 @@
 // src/screens/Validation/ValidationNotificationsScreen.js
-// ✅ NOUVEL ÉCRAN - Affiche les notifications de validation pour le Trésorier
+// NOUVEL ECRAN - Affiche les notifications de validation pour le Tresorier
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -45,14 +45,14 @@ const ValidationNotificationsScreen = ({ navigation }) => {
           n => n.type === 'VALIDATION_REQUEST' && n.requiresAction
         );
         
-        console.log('✅ Notifications de validation:', validationNotifs.length);
+        console.log('Notifications de validation:', validationNotifs.length);
         setNotifications(validationNotifs);
       } else {
-        console.error('❌ Erreur chargement notifications:', result.error);
+        console.error('Erreur chargement notifications:', result.error);
         setNotifications([]);
       }
     } catch (error) {
-      console.error('❌ Erreur:', error);
+      console.error('Erreur:', error);
       setNotifications([]);
     } finally {
       setLoading(false);
@@ -71,7 +71,7 @@ const ValidationNotificationsScreen = ({ navigation }) => {
     const actionType = notification.data?.actionType;
     
     Alert.alert(
-      '✅ Accepter cette demande ?',
+      'Accepter cette demande ?',
       `Action : ${validationService.getActionLabel(actionType)}\nRessource : ${resourceName}`,
       [
         { text: 'Annuler', style: 'cancel' },
@@ -95,16 +95,16 @@ const ValidationNotificationsScreen = ({ navigation }) => {
         await notificationService.markAsRead(notificationId);
         
         Alert.alert(
-          '✅ Demande acceptée',
-          'L\'Admin peut maintenant exécuter l\'action.',
+          'Demande acceptee',
+          'L\'Admin peut maintenant executer l\'action.',
           [{ text: 'OK', onPress: () => loadNotifications() }]
         );
       } else {
-        Alert.alert('❌ Erreur', result.error?.message || 'Impossible d\'accepter');
+        Alert.alert('Erreur', result.error?.message || 'Impossible d\'accepter');
       }
     } catch (error) {
-      console.error('❌ Erreur acceptation:', error);
-      Alert.alert('❌ Erreur', 'Une erreur est survenue');
+      console.error('Erreur acceptation:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue');
     } finally {
       setProcessing(false);
     }
@@ -115,7 +115,7 @@ const ValidationNotificationsScreen = ({ navigation }) => {
     const resourceName = notification.data?.resourceName;
     
     Alert.prompt(
-      '❌ Refuser cette demande ?',
+      'Refuser cette demande ?',
       `Ressource : ${resourceName}\n\nIndiquez la raison du refus :`,
       [
         { text: 'Annuler', style: 'cancel' },
@@ -124,7 +124,7 @@ const ValidationNotificationsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: (reason) => {
             if (!reason || reason.trim().length < 10) {
-              Alert.alert('❌ Erreur', 'La raison doit contenir au moins 10 caractères');
+              Alert.alert('Erreur', 'La raison doit contenir au moins 10 caractères');
               return;
             }
             confirmReject(validationRequestId, notification._id, reason.trim());
@@ -145,16 +145,16 @@ const ValidationNotificationsScreen = ({ navigation }) => {
         await notificationService.markAsRead(notificationId);
         
         Alert.alert(
-          '✅ Demande rejetée',
-          'L\'Admin a été notifié du refus.',
+          'Demande rejetee',
+          'L\'Admin a ete notifie du refus.',
           [{ text: 'OK', onPress: () => loadNotifications() }]
         );
       } else {
-        Alert.alert('❌ Erreur', result.error?.message || 'Impossible de rejeter');
+        Alert.alert('Erreur', result.error?.message || 'Impossible de rejeter');
       }
     } catch (error) {
-      console.error('❌ Erreur rejet:', error);
-      Alert.alert('❌ Erreur', 'Une erreur est survenue');
+      console.error('Erreur rejet:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue');
     } finally {
       setProcessing(false);
     }

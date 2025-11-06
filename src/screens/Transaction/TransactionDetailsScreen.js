@@ -148,7 +148,32 @@ const TransactionDetailsScreen = ({ navigation, route }) => {
     );
   }
 
-  const isTresorier = user?.role === 'Tresorier' || user?.role === 'Administrateur';
+  const isTresorier = user?.role === 'Tresorier' || user?.role === 'tresorier';
+  const isAdmin = user?.role === 'Administrateur' || user?.role === 'admin' || user?.role === 'Admin';
+  
+  // Vérifier si l'utilisateur peut valider cette transaction
+  const canValidateTransaction = () => {
+    if (!transaction || !isEnAttente) return false;
+    
+    // Admin peut toujours valider
+    if (isAdmin) {
+      return true;
+    }
+
+    // Trésorier ne peut pas valider sa propre transaction
+    if (isTresorier) {
+      // Si la transaction appartient à l'utilisateur connecté
+      if (transaction.user?.id === user?.id || transaction.userId === user?.id) {
+        return false;
+      }
+      // Si la transaction appartient à un trésorier (même si ce n'est pas lui)
+      if (transaction.user?.role === 'Tresorier' || transaction.user?.role === 'tresorier') {
+        return false;
+      }
+    }
+
+    return isTresorier || isAdmin;
+  };
   const isEnAttente = transaction.statut === 'En attente';
 
   return (
@@ -403,26 +428,43 @@ const TransactionDetailsScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        {isTresorier && isEnAttente && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={[styles.validateButton, actionLoading && { opacity: 0.5 }]}
-              onPress={handleValidate}
-              disabled={actionLoading}
-            >
-              <Ionicons name="checkmark-circle" size={24} color="#fff" />
-              <Text style={styles.buttonText}>Valider</Text>
-            </TouchableOpacity>
+        {isEnAttente && (
+          canValidateTransaction() ? (
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={[styles.validateButton, actionLoading && { opacity: 0.5 }]}
+                onPress={handleValidate}
+                disabled={actionLoading}
+              >
+                <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                <Text style={styles.buttonText}>Valider</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.rejectButton, actionLoading && { opacity: 0.5 }]}
-              onPress={() => setShowRejectModal(true)}
-              disabled={actionLoading}
-            >
-              <Ionicons name="close-circle" size={24} color="#fff" />
-              <Text style={styles.buttonText}>Rejeter</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[styles.rejectButton, actionLoading && { opacity: 0.5 }]}
+                onPress={() => setShowRejectModal(true)}
+                disabled={actionLoading}
+              >
+                <Ionicons name="close-circle" size={24} color="#fff" />
+                <Text style={styles.buttonText}>Rejeter</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (isTresorier || isAdmin) && (
+            <View style={[styles.card, { backgroundColor: theme.surface, padding: 20 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                <Ionicons name="information-circle" size={24} color={Colors.primaryDark} />
+                <Text style={[styles.sectionTitle, { color: theme.text, marginLeft: 10 }]}>
+                  Validation requise
+                </Text>
+              </View>
+              <Text style={[styles.detailText, { color: theme.textSecondary }]}>
+                {isTresorier && transaction.user?.id === user?.id 
+                  ? 'Un trésorier ne peut pas valider sa propre cotisation. L\'administrateur doit valider cette transaction.'
+                  : 'Un administrateur doit valider cette transaction.'
+                }
+              </Text>
+            </View>
+          )
         )}
       </ScrollView>
 

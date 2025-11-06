@@ -1,4 +1,4 @@
-// src/services/tontine/tontineService.js - ✅ VERSION CORRIGÉE
+// src/services/tontine/tontineService.js - VERSION CORRIGEE
 
 import { get, post, put, del } from '../api/apiClient';
 import API_CONFIG from '../../config/api.config';
@@ -78,18 +78,18 @@ const tontineService = {
   },
 
   // ========================================
-  // ACTIONS SUR LES TONTINES - ✅ CORRIGÉ
+  // ACTIONS SUR LES TONTINES - CORRIGE
   // ========================================
 
   /**
-   * ✅ Activer une tontine (Admin uniquement) - ACTION DIRECTE
+   * Activer une tontine (Admin uniquement) - ACTION DIRECTE
    */
   async activateTontine(tontineId) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.ACTIVATE(tontineId));
   },
 
   /**
-   * ✅ Bloquer une tontine (Admin uniquement) - AVEC VALIDATION
+   * Bloquer une tontine (Admin uniquement) - AVEC VALIDATION
    * @param {string} tontineId - ID de la tontine
    * @param {string} motif - Motif du blocage
    * @param {string} validationRequestId - ID de la validation acceptée
@@ -97,23 +97,23 @@ const tontineService = {
   async blockTontine(tontineId, motif, validationRequestId) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.BLOCK(tontineId), {
       motif,
-      validationRequestId, // ✅ AJOUTÉ
+      validationRequestId, // AJOUTE
     });
   },
 
   /**
-   * ✅ Débloquer/Réactiver une tontine (Admin uniquement) - AVEC VALIDATION
+   * Debloquer/Reactiver une tontine (Admin uniquement) - AVEC VALIDATION
    * @param {string} tontineId - ID de la tontine
    * @param {string} validationRequestId - ID de la validation acceptée
    */
   async unblockTontine(tontineId, validationRequestId) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.UNBLOCK(tontineId), {
-      validationRequestId, // ✅ AJOUTÉ
+      validationRequestId, // AJOUTE
     });
   },
 
   /**
-   * ✅ Clôturer une tontine (Admin uniquement) - ACTION DIRECTE
+   * Cloturer une tontine (Admin uniquement) - ACTION DIRECTE
    */
   async closeTontine(tontineId, genererRapport = true) {
     return await post(API_CONFIG.ENDPOINTS.TONTINES.CLOSE(tontineId), {
@@ -122,7 +122,7 @@ const tontineService = {
   },
 
   /**
-   * ✅ Supprimer une tontine (Admin uniquement) - AVEC VALIDATION
+   * Supprimer une tontine (Admin uniquement) - AVEC VALIDATION
    * @param {string} tontineId - ID de la tontine
    * @param {string} validationRequestId - ID de la validation acceptée
    */
@@ -130,7 +130,7 @@ const tontineService = {
     return await del(API_CONFIG.ENDPOINTS.TONTINES.DELETE(tontineId), {
       data: {
         confirmation: 'SUPPRIMER',
-        validationRequestId, // ✅ AJOUTÉ
+        validationRequestId, // AJOUTE
       },
     });
   },

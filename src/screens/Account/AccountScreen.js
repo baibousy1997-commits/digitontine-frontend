@@ -20,7 +20,7 @@ import AccountStyles from '../../styles/AccountScreenStyles';
 
 const AccountScreen = ({ navigation }) => {
   const { user, logout } = useAuthContext();
-  const { theme } = useTheme();
+  const { theme, isDarkMode } = useTheme();
   const [loggingOut, setLoggingOut] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -97,13 +97,15 @@ const AccountScreen = ({ navigation }) => {
     ? `${currentUser.prenom} ${currentUser.nom}` 
     : 'Utilisateur';
   const userRole = currentUser?.role || 'Membre';
-  const hasPhoto = currentUser?.photoProfil;
+  // Utiliser photoProfil si disponible, sinon photoIdentite comme fallback
+  const photoUrl = currentUser?.photoProfil || currentUser?.photoIdentite || null;
+  const hasPhoto = photoUrl && photoUrl.trim() !== '';
 
   if (loading) {
     return (
       <SafeAreaView style={[AccountStyles.container, { backgroundColor: theme.background }]}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={Colors.primaryDark} />
+          <ActivityIndicator size="large" color={theme.primaryDark} />
           <Text style={{ color: theme.text, marginTop: 10 }}>Chargement...</Text>
         </View>
       </SafeAreaView>
@@ -112,7 +114,7 @@ const AccountScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={[AccountStyles.container, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.headerBackground} />
+      <StatusBar barStyle={isDarkMode ? "light-content" : "light-content"} backgroundColor={theme.headerBackground} />
 
       {/* Header */}
       <View style={[AccountStyles.header, { backgroundColor: theme.headerBackground }]}>
@@ -131,11 +133,11 @@ const AccountScreen = ({ navigation }) => {
         <View style={AccountStyles.avatarContainer}>
           {hasPhoto ? (
             <Image 
-              source={{ uri: currentUser.photoProfil }} 
-              style={AccountStyles.avatar} 
+              source={{ uri: photoUrl }} 
+              style={[AccountStyles.avatar, { borderColor: theme.textLight }]} 
             />
           ) : (
-            <View style={[AccountStyles.avatar, AccountStyles.avatarWithInitials]}>
+            <View style={[AccountStyles.avatar, AccountStyles.avatarWithInitials, { borderColor: theme.textLight, backgroundColor: theme.primaryDark }]}>
               <Text style={AccountStyles.avatarInitials}>{getInitials()}</Text>
             </View>
           )}

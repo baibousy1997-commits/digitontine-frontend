@@ -1,4 +1,4 @@
-// src/screens/Tontine/ManageTontinesScreen.js - ✅ VERSION CORRIGÉE
+// src/screens/Tontine/ManageTontinesScreen.js - VERSION CORRIGEE
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -128,8 +128,8 @@ const handleBlockTontine = async (tontine) => {
 // ========================================
 const handleUnblockTontine = async (tontine) => {
   Alert.alert(
-    '🔓 Débloquer la tontine',
-    `Voulez-vous débloquer "${tontine.nom}" ?\n\nCette action nécessite la validation d'un Trésorier.\n\n✅ L'action sera EXÉCUTÉE AUTOMATIQUEMENT après validation.`,
+    'Debloquer la tontine',
+    `Voulez-vous debloquer "${tontine.nom}" ?\n\nCette action necessite la validation d'un Tresorier.\n\nL'action sera EXECUTEE AUTOMATIQUEMENT apres validation.`,
     [
       { text: 'Annuler', style: 'cancel' },
       {
@@ -162,8 +162,8 @@ const handleUnblockTontine = async (tontine) => {
 // ========================================
 const handleDeleteTontine = async (tontine) => {
   Alert.alert(
-    ' SUPPRESSION CRITIQUE',
-    ` ATTENTION !\n\nVous allez supprimer définitivement la tontine "${tontine.nom}".\n\nCette action nécessite la validation d'un Trésorier.\n\n✅ L'action sera EXÉCUTÉE AUTOMATIQUEMENT après validation.`,
+    'SUPPRESSION CRITIQUE',
+    `ATTENTION !\n\nVous allez supprimer definitivement la tontine "${tontine.nom}".\n\nCette action necessite la validation d'un Tresorier.\n\nL'action sera EXECUTEE AUTOMATIQUEMENT apres validation.`,
     [
       { text: 'Annuler', style: 'cancel' },
       { 

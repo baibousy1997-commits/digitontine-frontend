@@ -10,19 +10,28 @@ import {
   Alert,
   StyleSheet,
   RefreshControl,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuthContext } from '../../context/AuthContext';
 import validationService from '../../services/validation/validationService';
+import transactionService from '../../services/transaction/transactionService';
 import Colors from '../../constants/colors';
 
 const MyValidationRequestsScreen = ({ navigation }) => {
   const { theme } = useTheme();
+  const { user } = useAuthContext();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [requests, setRequests] = useState([]);
   const [filter, setFilter] = useState('all');
+  const [processing, setProcessing] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedTransactionId, setSelectedTransactionId] = useState(null);
+  const [rejectMotif, setRejectMotif] = useState('');
 
   useEffect(() => {
     loadMyRequests();
@@ -45,21 +54,27 @@ const MyValidationRequestsScreen = ({ navigation }) => {
         //  CORRECTION : Extraction correcte des données
         let data = [];
         
+        // La structure de l'API est: { success: true, data: [...], message: "...", timestamp: "..." }
         if (Array.isArray(result.data)) {
           data = result.data;
-          console.log(' Structure: result.data (direct)');
+          console.log(' ✅ Structure: result.data (direct array)');
         } else if (Array.isArray(result.data?.data)) {
           data = result.data.data;
-          console.log(' Structure: result.data.data');
+          console.log(' ✅ Structure: result.data.data');
         } else if (Array.isArray(result.data?.requests)) {
           data = result.data.requests;
-          console.log(' Structure: result.data.requests');
+          console.log(' ✅ Structure: result.data.requests');
+        } else {
+          console.warn(' ⚠️ Structure inattendue:', typeof result.data, result.data);
         }
         
-        console.log(` ${data.length} demande(s) extraite(s)`);
+        console.log(` 📊 ${data.length} demande(s) extraite(s)`);
         
         if (data.length > 0) {
-          console.log(' Première demande:', JSON.stringify(data[0], null, 2));
+          console.log(' 📋 Première demande:', JSON.stringify(data[0], null, 2));
+          console.log(' 🔍 Type de la première demande:', data[0].requestType || 'non défini');
+        } else {
+          console.log(' ⚠️ Aucune demande trouvée');
         }
         
         setRequests(data);
@@ -103,17 +118,88 @@ const MyValidationRequestsScreen = ({ navigation }) => {
     }
   };
 
+  const handleValidateTransaction = async (transactionId) => {
+    Alert.alert(
+      'Confirmation',
+      'Valider cette transaction ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Valider',
+          onPress: async () => {
+            setProcessing(true);
+            try {
+              const result = await transactionService.validateTransaction(transactionId);
+              
+              if (result.success) {
+                Alert.alert('Succès', 'Transaction validée avec succès');
+                await loadMyRequests();
+              } else {
+                Alert.alert('Erreur', result.error?.message || 'Validation échouée');
+              }
+            } catch (error) {
+              console.error('Erreur validation:', error);
+              Alert.alert('Erreur', 'Une erreur est survenue');
+            } finally {
+              setProcessing(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleRejectTransaction = (transactionId) => {
+    setSelectedTransactionId(transactionId);
+    setRejectMotif('');
+    setShowRejectModal(true);
+  };
+
+  const confirmRejectTransaction = async () => {
+    if (!rejectMotif || !rejectMotif.trim()) {
+      Alert.alert('Erreur', 'Le motif de rejet est requis');
+      return;
+    }
+    
+    setProcessing(true);
+    try {
+      const result = await transactionService.rejectTransaction(selectedTransactionId, rejectMotif.trim());
+      
+      if (result.success) {
+        Alert.alert('Succès', 'Transaction rejetée');
+        setShowRejectModal(false);
+        setSelectedTransactionId(null);
+        setRejectMotif('');
+        await loadMyRequests();
+      } else {
+        Alert.alert('Erreur', result.error?.message || 'Rejet échoué');
+      }
+    } catch (error) {
+      console.error('Erreur rejet:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const renderItem = ({ item }) => {
     console.log(' Render item:', JSON.stringify(item, null, 2));
     
     //  CORRECTION : Gestion flexible des IDs
     const requestId = item._id || item.id;
+    const isTransaction = item.requestType === 'transaction';
+    const isAdmin = user?.role === 'admin' || user?.role === 'Admin';
     
     return (
       <TouchableOpacity
         style={[styles.card, { backgroundColor: theme.surface }]}
         onPress={() => {
-          console.log(' Navigation vers détails:', requestId);
+          if (isTransaction && isAdmin) {
+            // Pour les transactions, naviguer vers la validation
+            navigation.navigate('TransactionsValidation');
+          } else {
+            console.log(' Navigation vers détails:', requestId);
+          }
         }}
       >
         <View style={styles.cardHeader}>
@@ -125,6 +211,11 @@ const MyValidationRequestsScreen = ({ navigation }) => {
             <Text style={[styles.resourceName, { color: theme.text }]}>
               {item.resourceName || 'Ressource non spécifiée'}
             </Text>
+            {isTransaction && item.transactionData && (
+              <Text style={[styles.transactionRef, { color: theme.textSecondary }]}>
+                Ref: {item.transactionData.reference}
+              </Text>
+            )}
           </View>
           <View style={[
             styles.statusBadge, 
@@ -139,7 +230,7 @@ const MyValidationRequestsScreen = ({ navigation }) => {
         <View style={styles.infoRow}>
           <Ionicons name="person" size={16} color={theme.textSecondary} />
           <Text style={[styles.infoText, { color: theme.textSecondary }]}>
-            Trésorier : {item.assignedTresorier || 'Non assigné'}
+            {isTransaction ? 'Trésorier' : 'Trésorier'} : {item.assignedTresorier || 'Non assigné'}
           </Text>
         </View>
 
@@ -156,11 +247,34 @@ const MyValidationRequestsScreen = ({ navigation }) => {
           </Text>
         </View>
 
+        {/* Boutons d'action pour les transactions en attente (admin uniquement) */}
+        {isTransaction && isAdmin && item.status === 'pending' && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.validateButton, processing && { opacity: 0.5 }]}
+              onPress={() => handleValidateTransaction(requestId)}
+              disabled={processing}
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={styles.validateButtonText}>Valider</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.rejectButton, processing && { opacity: 0.5 }]}
+              onPress={() => handleRejectTransaction(requestId)}
+              disabled={processing}
+            >
+              <Ionicons name="close-circle" size={20} color="#fff" />
+              <Text style={styles.rejectButtonText}>Rejeter</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {item.status === 'accepted' && (
           <View style={[styles.successBox, { backgroundColor: '#d4edda' }]}>
             <Ionicons name="checkmark-circle" size={20} color="#155724" />
             <Text style={styles.successText}>
-              Vous pouvez maintenant exécuter l'action
+              {isTransaction ? 'Transaction validée' : 'Vous pouvez maintenant exécuter l\'action'}
             </Text>
           </View>
         )}
@@ -262,8 +376,11 @@ const MyValidationRequestsScreen = ({ navigation }) => {
       </View>
 
       <FlatList
-        data={requests}
-        keyExtractor={(item) => item._id || item.id}
+        data={requests.filter(item => {
+          if (filter === 'all') return true;
+          return item.status === filter;
+        })}
+        keyExtractor={(item) => (item._id || item.id).toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -277,13 +394,78 @@ const MyValidationRequestsScreen = ({ navigation }) => {
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.textSecondary }]}>
               {filter === 'all' 
-                ? 'Créez une demande de validation pour les actions critiques'
+                ? 'Aucune demande de validation ou transaction en attente'
                 : `Aucune demande ${getStatusLabel(filter).toLowerCase()}`
               }
             </Text>
           </View>
         }
       />
+
+      {/* Modal de rejet */}
+      <Modal
+        visible={showRejectModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowRejectModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              Rejeter la transaction
+            </Text>
+            
+            <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
+              Veuillez indiquer le motif du rejet :
+            </Text>
+
+            <TextInput
+              style={[styles.motifInput, { 
+                backgroundColor: theme.inputBackground || theme.background,
+                color: theme.text,
+                borderColor: theme.border || '#E0E0E0',
+              }]}
+              placeholder="Motif du rejet (obligatoire)"
+              placeholderTextColor={theme.placeholder}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              value={rejectMotif}
+              onChangeText={setRejectMotif}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: Colors.placeholder }]}
+                onPress={() => {
+                  setShowRejectModal(false);
+                  setSelectedTransactionId(null);
+                  setRejectMotif('');
+                }}
+                disabled={processing}
+              >
+                <Text style={styles.modalButtonText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton, 
+                  { backgroundColor: Colors.dangerRed },
+                  processing && { opacity: 0.5 }
+                ]}
+                onPress={confirmRejectTransaction}
+                disabled={processing}
+              >
+                {processing ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonText}>Confirmer le rejet</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -373,6 +555,84 @@ const styles = StyleSheet.create({
   },
   emptyText: { fontSize: 18, fontWeight: '700', marginTop: 15 },
   emptySubtext: { fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 40 },
+  transactionRef: { fontSize: 12, marginTop: 4, fontStyle: 'italic' },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  validateButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.accentGreen,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  validateButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  rejectButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.dangerRed,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  rejectButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    padding: 20,
+    borderRadius: 15,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  motifInput: {
+    padding: 15,
+    borderRadius: 10,
+    fontSize: 15,
+    minHeight: 100,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
 });
 
 export default MyValidationRequestsScreen;
